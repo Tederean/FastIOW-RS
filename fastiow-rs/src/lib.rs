@@ -1,7 +1,9 @@
 #![allow(dead_code)]
+#![allow(unused_variables)]
 
 mod enums;
 mod fastiow;
+mod i2c;
 mod iowarrior;
 
 pub use self::enums::*;

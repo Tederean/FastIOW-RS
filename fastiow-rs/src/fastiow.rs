@@ -1,7 +1,7 @@
+use crate::iowarrior::IOWarrior;
+use iowkit_sys::bindings::Iowkit;
 use std::os::raw;
 use std::rc::Rc;
-use iowkit_sys::bindings::Iowkit;
-use crate::iowarrior::IOWarrior;
 
 pub struct FastIOW<'a> {
     iowkit: Rc<Iowkit>,
@@ -27,7 +27,7 @@ impl<'a> FastIOW<'a> {
         let iowkit_clone = iowkit.clone();
 
         let iowarriors = (0..device_count)
-            .map(move | index| IOWarrior::new(&iowkit_clone, index + 1))
+            .map(move |index| IOWarrior::new(&iowkit_clone, index + 1))
             .collect();
 
         return Ok(FastIOW {
@@ -40,8 +40,7 @@ impl<'a> FastIOW<'a> {
 
 impl<'a> Drop for FastIOW<'a> {
     fn drop(&mut self) {
-        if !self.iowkit_handle.is_null()
-        {
+        if !self.iowkit_handle.is_null() {
             unsafe { self.iowkit.IowKitCloseDevice(self.iowkit_handle) }
         }
     }

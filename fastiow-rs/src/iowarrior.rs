@@ -1,8 +1,9 @@
-use std::marker::PhantomData;
+use crate::i2c::I2C;
+use crate::{FastIOW, IOWarriorType};
 use iowkit_sys::bindings::Iowkit;
+use std::marker::PhantomData;
 use std::os::raw;
 use std::rc::Rc;
-use crate::{FastIOW, IOWarriorType};
 
 pub struct IOWarrior<'a> {
     phantom: PhantomData<&'a FastIOW<'a>>,
@@ -11,7 +12,8 @@ pub struct IOWarrior<'a> {
     pub device_product_id: u64,
     pub device_revision: u64,
     pub device_serial_number: Option<String>,
-    pub device_type: IOWarriorType,
+    pub device_type: Option<IOWarriorType>,
+    pub i2c: Option<I2C>,
 }
 
 impl<'a> IOWarrior<'a> {
@@ -32,14 +34,18 @@ impl<'a> IOWarrior<'a> {
             None
         };
 
-        let device_type: IOWarriorType = match device_product_id {
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW40 => IOWarriorType::IOWarrior40,
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW24 => IOWarriorType::IOWarrior24,
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW56 => IOWarriorType::IOWarrior56,
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28 => IOWarriorType::IOWarrior28,
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28L => IOWarriorType::IOWarrior28L,
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW100 => IOWarriorType::IOWarrior100,
-            _ => IOWarriorType::Unknown,
+        let device_type_option = match device_product_id {
+            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW40 => Some(IOWarriorType::IOWarrior40),
+            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW24 => Some(IOWarriorType::IOWarrior24),
+            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW56 => Some(IOWarriorType::IOWarrior56),
+            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28 => Some(IOWarriorType::IOWarrior28),
+            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28L => Some(IOWarriorType::IOWarrior28L),
+            _ => None,
+        };
+
+        let i2c = match device_type_option {
+            None => None,
+            Some(device_type) => Some(I2C::new(&iowkit, &device_handle, &device_type)),
         };
 
         Rc::new(IOWarrior {
@@ -49,7 +55,8 @@ impl<'a> IOWarrior<'a> {
             device_product_id: u64::from(device_product_id),
             device_revision: u64::from(device_revision),
             device_serial_number,
-            device_type,
+            device_type: device_type_option,
+            i2c,
         })
     }
 }

@@ -1,7 +1,5 @@
 #[allow(dead_code)]
-
 use fastiow_rs::FastIOW;
-
 
 //#[cfg(target_os = "windows")]
 //const LIB_PATH: &str = "iowkit.dll";
@@ -38,7 +36,10 @@ fn main() {
                 .device_serial_number
                 .clone()
                 .unwrap_or("?".to_string()),
-            iowarrior.device_type
+            match iowarrior.device_type {
+                None => String::from("?"),
+                Some(device_type) => device_type.to_string(),
+            },
         );
     }
 }
