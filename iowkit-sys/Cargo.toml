@@ -1,0 +1,15 @@
+[package]
+name = "iowkit-sys"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+exclude = ["iowkit.h"]
+
+[dependencies]
+libloading = "0.8.3"
+
+[features]
+default = []
+legacy-functions = []

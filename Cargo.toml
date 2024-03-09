@@ -1,0 +1,3 @@
+[workspace]
+resolver = "2"
+members = ["iowkit-sys", "fastiow-rs", "fastiow-rs-test"]
