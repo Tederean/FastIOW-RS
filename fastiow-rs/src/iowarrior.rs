@@ -1,62 +1,137 @@
-use crate::i2c::I2C;
-use crate::{FastIOW, IOWarriorType};
-use iowkit_sys::bindings::Iowkit;
-use std::marker::PhantomData;
-use std::os::raw;
+use crate::iowkit::IOWarriorData;
+use std::fmt;
 use std::rc::Rc;
 
-pub struct IOWarrior<'a> {
-    phantom: PhantomData<&'a FastIOW<'a>>,
-    device_handle: *mut raw::c_void,
-    iowkit: Rc<Iowkit>,
-    pub device_product_id: u64,
-    pub device_revision: u64,
-    pub device_serial_number: Option<String>,
-    pub device_type: Option<IOWarriorType>,
-    pub i2c: Option<I2C>,
+#[derive(Debug)]
+pub enum IOWarrior {
+    IOWarrior40(IOWarrior40),
+    IOWarrior24(IOWarrior24),
+    IOWarrior28(IOWarrior28),
+    IOWarrior28L(IOWarrior28L),
+    IOWarrior28Dongle(IOWarrior28Dongle),
+    IOWarrior56(IOWarrior56),
+    IOWarrior56Dongle(IOWarrior56Dongle),
+    IOWarrior56Beta(IOWarrior56Beta),
+    IOWarrior100(IOWarrior100),
 }
 
-impl<'a> IOWarrior<'a> {
-    pub fn new(iowkit: &Rc<Iowkit>, index: raw::c_ulong) -> Rc<IOWarrior<'a>> {
-        let device_handle = unsafe { iowkit.IowKitGetDeviceHandle(index) };
-        let device_product_id = unsafe { iowkit.IowKitGetProductId(device_handle) };
-        let device_revision = unsafe { iowkit.IowKitGetRevision(device_handle) };
+impl fmt::Display for IOWarrior {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
-        let mut raw_device_serial_number = [0u16; 9];
+#[derive(Debug, Copy, Clone)]
+pub enum IOWarriorType {
+    IOWarrior40,
+    IOWarrior24,
+    IOWarrior28,
+    IOWarrior28L,
+    IOWarrior56,
+    IOWarrior100,
+}
 
-        let device_serial_number_result = unsafe {
-            iowkit.IowKitGetSerialNumber(device_handle, raw_device_serial_number.as_mut_ptr())
-        };
+impl fmt::Display for IOWarriorType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
-        let device_serial_number = if device_serial_number_result > 0i32 {
-            Some(String::from_utf16_lossy(&raw_device_serial_number))
-        } else {
-            None
-        };
+#[derive(Debug)]
+pub struct IOWarrior40 {
+    pub device_data: Rc<IOWarriorData>,
+}
 
-        let device_type_option = match device_product_id {
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW40 => Some(IOWarriorType::IOWarrior40),
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW24 => Some(IOWarriorType::IOWarrior24),
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW56 => Some(IOWarriorType::IOWarrior56),
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28 => Some(IOWarriorType::IOWarrior28),
-            iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28L => Some(IOWarriorType::IOWarrior28L),
-            _ => None,
-        };
+impl fmt::Display for IOWarrior40 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
-        let i2c = match device_type_option {
-            None => None,
-            Some(device_type) => Some(I2C::new(&iowkit, &device_handle, &device_type)),
-        };
+#[derive(Debug)]
+pub struct IOWarrior24 {
+    pub device_data: Rc<IOWarriorData>,
+}
 
-        Rc::new(IOWarrior {
-            phantom: PhantomData,
-            iowkit: iowkit.clone(),
-            device_handle,
-            device_product_id: u64::from(device_product_id),
-            device_revision: u64::from(device_revision),
-            device_serial_number,
-            device_type: device_type_option,
-            i2c,
-        })
+impl fmt::Display for IOWarrior24 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior28 {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior28 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior28L {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior28L {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior28Dongle {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior28Dongle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior56 {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior56 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior56Dongle {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior56Dongle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior56Beta {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior56Beta {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+pub struct IOWarrior100 {
+    pub device_data: Rc<IOWarriorData>,
+}
+
+impl fmt::Display for IOWarrior100 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }

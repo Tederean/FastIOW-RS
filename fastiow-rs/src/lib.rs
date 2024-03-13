@@ -1,13 +1,11 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-mod enums;
 mod fastiow;
-mod i2c;
 mod iowarrior;
+mod iowkit;
 
-pub use self::enums::*;
-pub use self::fastiow::*;
+pub use self::fastiow::get_iowarriors;
 pub use self::iowarrior::*;
 
 extern crate iowkit_sys;
