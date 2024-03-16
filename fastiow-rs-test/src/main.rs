@@ -7,17 +7,19 @@ fn main() {
 
     for iowarrior in &mut iowarriors {
         println!(
-            "ID: {0} Rev: {1} SN: {2} Type: {3}",
-            iowarrior.device_product_id,
-            iowarrior.device_revision,
-            iowarrior
-                .device_serial_number
-                .clone()
-                .unwrap_or("?".to_string()),
-            match iowarrior.device_type {
-                None => String::from("?"),
-                Some(device_type) => device_type.to_string(),
-            },
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
+
+        match iowarrior.enable_i2c() {
+            Ok(_) => {
+                println!("Enabled I2C");
+            }
+            Err(error) => {
+                println!("{0}", error);
+            }
+        }
     }
 }
