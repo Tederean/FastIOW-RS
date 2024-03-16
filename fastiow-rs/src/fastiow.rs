@@ -85,8 +85,8 @@ fn get_iowarrior56_subtype(device_data: &IOWarriorData) -> IOWarriorType {
     } else {
         let mut report = device_data.create_report(Pipe::SpecialMode);
 
-        report.data[0] = ReportId::AdcSetup.get_value();
-        report.data[1] = 0x00;
+        report.buffer[0] = ReportId::AdcSetup.get_value();
+        report.buffer[1] = 0x00;
 
         match device_data.write_report(&report) {
             Ok(_) => IOWarriorType::IOWarrior56,
@@ -98,8 +98,8 @@ fn get_iowarrior56_subtype(device_data: &IOWarriorData) -> IOWarriorType {
 fn get_iowarrior28_subtype(device_data: &IOWarriorData) -> IOWarriorType {
     let mut report = device_data.create_report(Pipe::ADCMode);
 
-    report.data[0] = ReportId::AdcSetup.get_value();
-    report.data[1] = 0x00;
+    report.buffer[0] = ReportId::AdcSetup.get_value();
+    report.buffer[1] = 0x00;
 
     match device_data.write_report(&mut report) {
         Ok(_) => IOWarriorType::IOWarrior28,
@@ -127,30 +127,28 @@ fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {
     }
 }
 
-fn get_standard_report_size(device_type: IOWarriorType) -> u8 {
+fn get_standard_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior24 => 3u8,
+        IOWarriorType::IOWarrior24 => 3,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior28L
-        | IOWarriorType::IOWarrior40 => 5u8,
+        | IOWarriorType::IOWarrior40 => 5,
         IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle
         | IOWarriorType::IOWarrior56Old
-        | IOWarriorType::IOWarrior100 => 8u8,
+        | IOWarriorType::IOWarrior100 => 8,
     }
 }
 
-fn get_special_report_size(device_type: IOWarriorType) -> u8 {
+fn get_special_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior40 | IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior28L => {
-            8u8
-        }
+        IOWarriorType::IOWarrior40 | IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior28L => 8,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle
         | IOWarriorType::IOWarrior56Old
-        | IOWarriorType::IOWarrior100 => 64u8,
+        | IOWarriorType::IOWarrior100 => 64,
     }
 }

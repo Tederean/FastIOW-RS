@@ -29,6 +29,8 @@ impl fmt::Display for IOWarriorType {
 pub enum ModuleEnableError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
+    #[error("Module is not supported by hardware.")]
+    NotSupported,
     #[error("Module already enabled.")]
     AlreadyEnabled,
     #[error("Hardware is blocked by other module.")]

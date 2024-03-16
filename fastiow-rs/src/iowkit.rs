@@ -29,8 +29,8 @@ pub struct IOWarriorData {
     pub device_handle: IOWKIT_HANDLE,
     pub device_revision: u64,
     pub device_type: IOWarriorType,
-    pub standard_report_size: u8,
-    pub special_report_size: u8,
+    pub standard_report_size: usize,
+    pub special_report_size: usize,
     pub i2c_pipe: Pipe,
     pub i2c_pins: [u8; 2],
 }
@@ -56,12 +56,12 @@ impl fmt::Display for IOWarriorMutData {
 impl IOWarriorData {
     pub fn create_report(&self, pipe: Pipe) -> Report {
         Report {
-            data: match pipe {
+            buffer: match pipe {
                 Pipe::IOPins => {
-                    vec![0u8; self.standard_report_size as usize]
+                    vec![0u8; self.standard_report_size]
                 }
                 _ => {
-                    vec![0u8; self.special_report_size as usize]
+                    vec![0u8; self.special_report_size]
                 }
             },
             pipe,
@@ -69,18 +69,16 @@ impl IOWarriorData {
     }
 
     pub fn write_report(&self, report: &Report) -> Result<(), IowkitError> {
-        let mut clone = report.clone(); // TODO replace with mem::transmute..?
-
         let written_bytes = unsafe {
             self.iowkit_data.iowkit.IowKitWrite(
                 self.device_handle,
-                clone.pipe.get_value() as bindings::ULONG,
-                clone.data.as_mut_ptr() as bindings::PCHAR,
-                clone.data.len() as bindings::ULONG,
+                report.pipe.get_value() as bindings::ULONG,
+                report.buffer.as_ptr() as bindings::PCHAR,
+                report.buffer.len() as bindings::ULONG,
             )
         } as usize;
 
-        if written_bytes != report.data.len() {
+        if written_bytes != report.buffer.len() {
             return Err(IowkitError::IOErrorIOWarrior);
         }
 
@@ -94,12 +92,12 @@ impl IOWarriorData {
             self.iowkit_data.iowkit.IowKitReadNonBlocking(
                 self.device_handle,
                 report.pipe.get_value() as bindings::ULONG,
-                report.data.as_mut_ptr() as bindings::PCHAR,
-                report.data.len() as bindings::ULONG,
+                report.buffer.as_mut_ptr() as bindings::PCHAR,
+                report.buffer.len() as bindings::ULONG,
             )
         } as usize;
 
-        if read_bytes != report.data.len() {
+        if read_bytes != report.buffer.len() {
             return None;
         }
 
@@ -113,12 +111,12 @@ impl IOWarriorData {
             self.iowkit_data.iowkit.IowKitRead(
                 self.device_handle,
                 report.pipe.get_value() as bindings::ULONG,
-                report.data.as_mut_ptr() as bindings::PCHAR,
-                report.data.len() as bindings::ULONG,
+                report.buffer.as_mut_ptr() as bindings::PCHAR,
+                report.buffer.len() as bindings::ULONG,
             )
         } as usize;
 
-        if read_bytes != report.data.len() {
+        if read_bytes != report.buffer.len() {
             return Err(IowkitError::IOErrorIOWarrior);
         }
 
@@ -128,8 +126,8 @@ impl IOWarriorData {
     pub fn enable_i2c(&self, enable: bool) -> Result<(), IowkitError> {
         let mut report = self.create_report(self.i2c_pipe);
 
-        report.data[0] = ReportId::I2cSetup.get_value();
-        report.data[1] = match enable {
+        report.buffer[0] = ReportId::I2cSetup.get_value();
+        report.buffer[1] = match enable {
             true => 0x01,
             false => 0x00,
         };
@@ -147,7 +145,7 @@ pub enum IowkitError {
 
 #[derive(Debug, Clone)]
 pub struct Report {
-    pub data: Vec<u8>,
+    pub buffer: Vec<u8>,
     pub pipe: Pipe,
 }
 
