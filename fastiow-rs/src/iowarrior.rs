@@ -1,11 +1,12 @@
-use crate::i2c::I2C;
+use crate::gpio::{GpioEnableError, GPIO};
+use crate::i2c::{I2CEnableError, I2C};
 use crate::iowkit::{IOWarriorData, IOWarriorMutData};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum IOWarriorType {
     IOWarrior40,
     IOWarrior24,
@@ -24,21 +25,20 @@ impl fmt::Display for IOWarriorType {
     }
 }
 
-#[non_exhaustive]
-#[derive(Debug, Error, Copy, Clone)]
-pub enum ModuleEnableError {
-    #[error("IOWarrior input output error.")]
-    IOErrorIOWarrior,
-    #[error("Module is not supported by hardware.")]
-    NotSupported,
-    #[error("Module already enabled.")]
-    AlreadyEnabled,
-    #[error("Hardware is blocked by other module.")]
-    HardwareBlockedByOtherModule,
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Module {
+    GPIO,
+    I2C,
+}
+
+impl fmt::Display for Module {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error, Copy, Clone)]
+#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum SerialNumberError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
@@ -83,8 +83,12 @@ impl IOWarrior {
         }
     }
 
-    pub fn enable_i2c(&self) -> Result<I2C, ModuleEnableError> {
+    pub fn enable_i2c(&self) -> Result<I2C, I2CEnableError> {
         I2C::new(&self.data, &self.mut_data_refcell)
+    }
+
+    pub fn enable_gpio(&self) -> Result<GPIO, GpioEnableError> {
+        GPIO::new(&self.data, &self.mut_data_refcell)
     }
 }
 

@@ -1,15 +1,16 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::iowkit::{IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId};
-use crate::{IOWarriorType, ModuleEnableError};
-use refinement::{Predicate, Refinement};
+use crate::iowkit::{
+    IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
+};
+use crate::{IOWarriorType, Module};
 use std::cell::RefCell;
-use std::iter;
 use std::rc::Rc;
+use std::{fmt, iter};
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Debug, Error, Copy, Clone)]
+#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum I2CCommunicationError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
@@ -19,6 +20,18 @@ pub enum I2CCommunicationError {
     IOErrorI2CArbitrationLost,
 }
 
+#[non_exhaustive]
+#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum I2CEnableError {
+    #[error("IOWarrior input output error.")]
+    IOErrorIOWarrior,
+    #[error("Module already enabled.")]
+    AlreadyEnabled,
+    #[error("Hardware is blocked by {0} module.")]
+    HardwareBlockedByModule(Module),
+}
+
+#[derive(Debug)]
 pub struct I2C {
     pub(crate) data: Rc<IOWarriorData>,
     pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
@@ -28,30 +41,53 @@ impl I2C {
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-    ) -> Result<I2C, ModuleEnableError> {
+    ) -> Result<I2C, I2CEnableError> {
         {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
-            if mut_data.i2c_struct_existing {
-                return Err(ModuleEnableError::AlreadyEnabled);
-            }
+            match mut_data
+                .pins_in_use
+                .iter()
+                .filter(|&x| x.module == Module::I2C)
+                .next()
+            {
+                None => {}
+                Some(_) => return Err(I2CEnableError::AlreadyEnabled),
+            };
 
-            // TODO check pins
+            match mut_data
+                .pins_in_use
+                .iter()
+                .filter(|&x| x.pin == data.i2c_pins[0] || x.pin == data.i2c_pins[1])
+                .next()
+            {
+                None => {}
+                Some(conflict) => {
+                    return Err(I2CEnableError::HardwareBlockedByModule(conflict.module))
+                }
+            };
+
+            if !data.cleanup_dangling_modules(&mut mut_data) {
+                return Err(I2CEnableError::IOErrorIOWarrior);
+            }
 
             match data.enable_i2c(true) {
                 Ok(_) => {
-                    mut_data.i2c_hardware_enabled = true;
+                    mut_data.pins_in_use.push(UsedPin {
+                        pin: data.i2c_pins[0],
+                        module: Module::I2C,
+                    });
+                    mut_data.pins_in_use.push(UsedPin {
+                        pin: data.i2c_pins[1],
+                        module: Module::I2C,
+                    });
                 }
                 Err(error) => {
-                    mut_data.i2c_hardware_enabled = false;
-
                     return match error {
-                        IowkitError::IOErrorIOWarrior => Err(ModuleEnableError::IOErrorIOWarrior),
+                        IowkitError::IOErrorIOWarrior => Err(I2CEnableError::IOErrorIOWarrior),
                     };
                 }
             }
-
-            mut_data.i2c_struct_existing = true;
         }
 
         Ok(I2C {
@@ -85,13 +121,8 @@ impl I2C {
             report.buffer.push({
                 let mut value = (chunk.len() + 1) as u8;
 
-                if start_byte {
-                    value.set_bit(Bit7, true); // Enable start
-                }
-
-                if stop_byte {
-                    value.set_bit(Bit6, true); // Enable stop
-                }
+                value.set_bit(Bit6, stop_byte);
+                value.set_bit(Bit7, start_byte);
 
                 value
             });
@@ -205,29 +236,56 @@ impl I2C {
 
 impl Drop for I2C {
     fn drop(&mut self) {
-        let result = self.data.enable_i2c(false);
-
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
-        mut_data.i2c_struct_existing = false;
-        mut_data.i2c_hardware_enabled = match result {
-            Ok(_) => false,
-            Err(_) => true,
-        };
+        match self.data.enable_i2c(false) {
+            Ok(_) => {}
+            Err(_) => mut_data.dangling_modules.push(Module::I2C),
+        }
+
+        mut_data.pins_in_use.retain(|x| x.module == Module::I2C);
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct I2CAddressStruct;
+impl fmt::Display for I2C {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
 
-impl Predicate<u8> for I2CAddressStruct {
-    fn test(address: &u8) -> bool {
-        match address {
-            0x00 => false, // Reserved as a general call address
-            _ if (0x01..=0x7F).contains(address) && address % 2 == 1 => true, // Valid 7-bit I2C addresses are numbers between 0x01 and 0x7F
-            _ => false, // Invalid addresses or even numbers
+#[non_exhaustive]
+#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum I2CAddressError {
+    #[error("Address is to large for a valid 7 bit I2C address.")]
+    NotA7BitAddress,
+    #[error("Reserved I2C addresses are not allowed.")]
+    ReservedAddress,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct I2CAddress {
+    address: u8,
+}
+
+impl I2CAddress {
+    pub const fn new(address: u8) -> Result<I2CAddress, I2CAddressError> {
+        if address > 127 {
+            return Err(I2CAddressError::NotA7BitAddress);
+        }
+
+        match address > 0 && !(address >= 0x78 && address <= 0x7F) {
+            true => Ok(I2CAddress { address }),
+            false => Err(I2CAddressError::ReservedAddress),
         }
     }
+
+    pub const fn to_inner(&self) -> u8 {
+        self.address
+    }
 }
 
-pub type I2CAddress = Refinement<u8, I2CAddressStruct>;
+impl fmt::Display for I2CAddress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}

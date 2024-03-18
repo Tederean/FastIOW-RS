@@ -36,6 +36,11 @@ pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
 
 fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: ULONG) -> Option<IOWarrior> {
     let device_handle = unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) };
+
+    if device_handle.is_null() {
+        return None;
+    }
+
     let device_product_id = unsafe { iowkit_data.iowkit.IowKitGetProductId(device_handle) };
     let device_revision = unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle) } as u64;
 
@@ -69,8 +74,8 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: ULONG) -> Option<IOWarrio
     }
 
     let mut_data = IOWarriorMutData {
-        i2c_hardware_enabled: false,
-        i2c_struct_existing: false,
+        pins_in_use: vec![],
+        dangling_modules: vec![],
     };
 
     Some(IOWarrior {

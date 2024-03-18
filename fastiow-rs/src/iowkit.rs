@@ -1,6 +1,7 @@
-use crate::IOWarriorType;
+use crate::{IOWarriorType, Module};
 use iowkit_sys::bindings;
 use iowkit_sys::bindings::{Iowkit, IOWKIT_HANDLE};
+use std::cell::RefMut;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
@@ -23,7 +24,7 @@ impl Drop for IowkitData {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct IOWarriorData {
     pub iowkit_data: Arc<IowkitData>,
     pub device_handle: IOWKIT_HANDLE,
@@ -41,10 +42,22 @@ impl fmt::Display for IOWarriorData {
     }
 }
 
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct UsedPin {
+    pub pin: u8,
+    pub module: Module,
+}
+
+impl fmt::Display for UsedPin {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Debug)]
 pub struct IOWarriorMutData {
-    pub i2c_struct_existing: bool,
-    pub i2c_hardware_enabled: bool,
+    pub pins_in_use: Vec<UsedPin>,
+    pub dangling_modules: Vec<Module>,
 }
 
 impl fmt::Display for IOWarriorMutData {
@@ -123,6 +136,22 @@ impl IOWarriorData {
         Ok(report)
     }
 
+    pub fn cleanup_dangling_modules(&self, mut_data: &mut RefMut<IOWarriorMutData>) -> bool {
+        if !mut_data.dangling_modules.is_empty() {
+            for x in mut_data.dangling_modules.to_vec() {
+                match x {
+                    Module::GPIO => {}
+                    Module::I2C => match self.enable_i2c(false) {
+                        Ok(_) => mut_data.dangling_modules.retain(|y| *y != x),
+                        Err(_) => {}
+                    },
+                }
+            }
+        }
+
+        mut_data.dangling_modules.is_empty()
+    }
+
     pub fn enable_i2c(&self, enable: bool) -> Result<(), IowkitError> {
         let mut report = self.create_report(self.i2c_pipe);
 
@@ -137,13 +166,13 @@ impl IOWarriorData {
 }
 
 #[non_exhaustive]
-#[derive(Debug, Error, Copy, Clone)]
+#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum IowkitError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Report {
     pub buffer: Vec<u8>,
     pub pipe: Pipe,
@@ -155,7 +184,7 @@ impl fmt::Display for Report {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Pipe {
     IOPins = 0,
     SpecialMode = 1,
@@ -175,7 +204,7 @@ impl fmt::Display for Pipe {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ReportId {
     AdcSetup = 0x1C,
     AdcRead = 0x1D,

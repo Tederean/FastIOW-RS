@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Bit {
     Bit0 = 0,
     Bit1 = 1,
@@ -13,7 +13,7 @@ pub enum Bit {
 }
 
 impl Bit {
-    fn get_value(&self) -> u8 {
+    const fn get_value(&self) -> u8 {
         *self as u8
     }
 }
