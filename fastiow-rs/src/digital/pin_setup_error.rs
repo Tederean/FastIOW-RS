@@ -3,7 +3,7 @@ use thiserror::Error;
 
 #[non_exhaustive]
 #[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum GpioSetupError {
+pub enum PinSetupError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
     #[error("GPIO not existing.")]

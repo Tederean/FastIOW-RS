@@ -1,7 +1,7 @@
 use crate::internal::{
     IOWarriorData, IOWarriorMutData, IowkitError, PinType, Pipe, Report, ReportId, UsedPin,
 };
-use crate::{GpioSetupError, IOWarriorType, Peripheral, PeripheralSetupError};
+use crate::{IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
 use iowkit_sys::bindings;
 use std::cell::RefMut;
 
@@ -84,7 +84,7 @@ pub fn enable_peripheral(
     match mut_data
         .pins_in_use
         .iter()
-        .filter(|x| x.peripheral == peripheral)
+        .filter(|x| x.peripheral == Some(peripheral))
         .next()
     {
         None => {}
@@ -113,12 +113,12 @@ pub fn enable_peripheral(
             match send_enable_i2c(&data, true) {
                 Ok(_) => {
                     mut_data.pins_in_use.push(UsedPin {
-                        peripheral: Peripheral::I2C,
+                        peripheral: Some(Peripheral::I2C),
                         pin: data.i2c_pins[0],
                     });
 
                     mut_data.pins_in_use.push(UsedPin {
-                        peripheral: Peripheral::I2C,
+                        peripheral: Some(Peripheral::I2C),
                         pin: data.i2c_pins[1],
                     });
                 }
@@ -131,7 +131,6 @@ pub fn enable_peripheral(
                 }
             }
         }
-        Peripheral::GPIO => {}
     }
 
     Ok(())
@@ -147,13 +146,12 @@ pub fn disable_peripheral(
             Ok(_) => {
                 mut_data
                     .pins_in_use
-                    .retain(|x| x.peripheral != Peripheral::I2C);
+                    .retain(|x| x.peripheral != Some(Peripheral::I2C));
             }
             Err(_) => {
                 mut_data.dangling_peripherals.push(Peripheral::I2C);
             }
         },
-        Peripheral::GPIO => {}
     }
 }
 
@@ -165,7 +163,6 @@ fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarrio
                     Ok(_) => mut_data.dangling_peripherals.retain(|y| *y != x),
                     Err(_) => {}
                 },
-                Peripheral::GPIO => {}
             }
         }
     }
@@ -178,37 +175,37 @@ pub fn enable_gpio(
     mut_data: &mut RefMut<IOWarriorMutData>,
     pin_type: PinType,
     pin: u8,
-) -> Result<(), GpioSetupError> {
+) -> Result<(), PinSetupError> {
     if data.device_type == IOWarriorType::IOWarrior28Dongle
         || data.device_type == IOWarriorType::IOWarrior56Dongle
     {
-        return Err(GpioSetupError::NotSupported);
+        return Err(PinSetupError::NotSupported);
     }
 
     if !(data.is_valid_gpio)(pin) {
-        return Err(GpioSetupError::PinNotExisting);
+        return Err(PinSetupError::PinNotExisting);
     }
 
     match mut_data.pins_in_use.iter().filter(|x| x.pin == pin).next() {
         None => {}
         Some(used_pin) => {
             return Err(match used_pin.peripheral {
-                Peripheral::GPIO => GpioSetupError::AlreadySetup,
-                Peripheral::I2C => GpioSetupError::BlockedByPeripheral(Peripheral::I2C),
+                None => PinSetupError::AlreadySetup,
+                Some(Peripheral::I2C) => PinSetupError::BlockedByPeripheral(Peripheral::I2C),
             })
         }
     }
 
     match cleanup_dangling_modules(&data, mut_data) {
         true => {}
-        false => return Err(GpioSetupError::IOErrorIOWarrior),
+        false => return Err(PinSetupError::IOErrorIOWarrior),
     }
 
     // TODO Send Report with err handling
 
     mut_data.pins_in_use.push(UsedPin {
         pin,
-        peripheral: Peripheral::GPIO,
+        peripheral: None,
     });
 
     Ok(())
@@ -222,7 +219,8 @@ pub fn disable_gpio(
 ) {
     // TODO Send Report with err handling
 
-    // Ok mut_data.pins_in_use.retain(|x| x.pin == pin);
+    mut_data.pins_in_use.retain(|x| x.pin == pin);
+
     // Err mut_data.dangling_peripherals.push(Peripheral::I2C);
 }
 

@@ -1,5 +1,6 @@
 use crate::internal::{
-    create_report, write_report, IOWarriorData, IOWarriorMutData, IowkitData, Pipe, ReportId,
+    create_report, read_report, write_report, IOWarriorData, IOWarriorMutData, IowkitData,
+    IowkitError, Pipe, Report, ReportId,
 };
 use crate::{IOWarrior, IOWarriorType, SerialNumberError};
 use iowkit_sys::bindings::{Iowkit, ULONG};
@@ -77,9 +78,16 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: ULONG) -> Option<IOWarrio
 
     device_data.is_valid_gpio = get_is_valid_gpio(device_type);
 
+    let pins_report = match get_pins_report(&device_data) {
+        Ok(x) => x,
+        Err(_) => return None,
+    };
+
     let mut_data = IOWarriorMutData {
         pins_in_use: vec![],
         dangling_peripherals: vec![],
+        pins_write_report: pins_report.clone(),
+        pins_read_report: pins_report,
     };
 
     Some(IOWarrior {
@@ -173,6 +181,32 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
         IOWarriorType::IOWarrior100 => {
             |x| (x > 7 && x < 19) || (x > 23 && x < 84) || x == 86 || x == 89 || x == 90
         }
+    }
+}
+
+fn get_pins_report(data: &IOWarriorData) -> Result<Report, IowkitError> {
+    {
+        let mut report = create_report(&data, Pipe::SpecialMode);
+
+        report.buffer[0] = ReportId::GpioSpecialRead.get_value();
+
+        write_report(&data, &report)?;
+    }
+
+    {
+        let mut report = read_report(&data, Pipe::SpecialMode)?;
+
+        report.buffer[0] = ReportId::GpioReadWrite.get_value();
+
+        Ok(Report {
+            pipe: Pipe::IOPins,
+            buffer: report
+                .buffer
+                .iter()
+                .map(|x| *x)
+                .take(data.standard_report_size)
+                .collect(),
+        })
     }
 }
 

@@ -1,8 +1,7 @@
 use crate::internal::{IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::iowarrior_service;
 use crate::{
-    GpioSetupError, IOWarriorType, InputPin, OutputPin, PeripheralSetupError, SerialNumberError,
-    I2C,
+    IOWarriorType, InputPin, OutputPin, PeripheralSetupError, PinSetupError, SerialNumberError, I2C,
 };
 use std::cell::RefCell;
 use std::fmt;
@@ -37,11 +36,11 @@ impl IOWarrior {
         I2C::new(&self.data, &self.mut_data_refcell)
     }
 
-    pub fn setup_gpio_as_output(&self, pin: u8) -> Result<OutputPin, GpioSetupError> {
+    pub fn setup_output(&self, pin: u8) -> Result<OutputPin, PinSetupError> {
         OutputPin::new(&self.data, &self.mut_data_refcell, pin)
     }
 
-    pub fn setup_gpio_as_input(&self, pin: u8) -> Result<InputPin, GpioSetupError> {
+    pub fn setup_input(&self, pin: u8) -> Result<InputPin, PinSetupError> {
         InputPin::new(&self.data, &self.mut_data_refcell, pin)
     }
 }

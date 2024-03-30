@@ -1,11 +1,10 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::i2c::I2CCommunicationError;
 use crate::internal::{
     create_report, disable_peripheral, enable_peripheral, read_report, write_report, IOWarriorData,
     IOWarriorMutData, IowkitError, Pipe, Report, ReportId,
 };
-use crate::{I2CAddress, IOWarriorType, Peripheral, PeripheralSetupError};
+use crate::{I2CError, IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::{fmt, iter};
@@ -30,6 +29,33 @@ impl Drop for I2C {
     }
 }
 
+impl embedded_hal::i2c::ErrorType for I2C {
+    type Error = I2CError;
+}
+
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
+    fn transaction(
+        &mut self,
+        address: embedded_hal::i2c::SevenBitAddress,
+        operations: &mut [embedded_hal::i2c::Operation],
+    ) -> Result<(), Self::Error> {
+        self.check_valid_7bit_address(address)?;
+
+        for operation in operations {
+            match operation {
+                embedded_hal::i2c::Operation::Read(buffer) => {
+                    self.read_data(address, buffer)?;
+                }
+                embedded_hal::i2c::Operation::Write(buffer) => {
+                    self.write_data(address, buffer)?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
 impl I2C {
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
@@ -47,11 +73,18 @@ impl I2C {
         })
     }
 
-    pub fn write_data(
-        &self,
-        address: &I2CAddress,
-        buffer: &[u8],
-    ) -> Result<(), I2CCommunicationError> {
+    fn check_valid_7bit_address(&self, address: u8) -> Result<(), I2CError> {
+        if address > 127 {
+            return Err(I2CError::InvalidI2CAddress);
+        }
+
+        match address > 0 && !(address >= 0x78 && address <= 0x7F) {
+            true => Ok(()),
+            false => Err(I2CError::InvalidI2CAddress),
+        }
+    }
+
+    fn write_data(&self, address: u8, buffer: &[u8]) -> Result<(), I2CError> {
         let chunk_iterator = buffer.chunks(self.data.special_report_size - 3);
         let chunk_iterator_count = chunk_iterator.len();
         let report_id = ReportId::I2cWrite;
@@ -79,7 +112,7 @@ impl I2C {
             });
 
             report.buffer.push({
-                let mut value = address.to_inner() << 1;
+                let mut value = address << 1;
 
                 value.set_bit(Bit0, false); // Write address
 
@@ -99,11 +132,7 @@ impl I2C {
         Ok(())
     }
 
-    pub fn read_data(
-        &self,
-        address: &I2CAddress,
-        buffer: &mut [u8],
-    ) -> Result<(), I2CCommunicationError> {
+    fn read_data(&self, address: u8, buffer: &mut [u8]) -> Result<(), I2CError> {
         let chunk_iterator = buffer.chunks_mut(self.data.special_report_size - 2);
         let report_id = ReportId::I2cRead;
 
@@ -117,7 +146,7 @@ impl I2C {
                 report.buffer[1] = chunk_length;
 
                 report.buffer[2] = {
-                    let mut value = address.to_inner() << 1;
+                    let mut value = address << 1;
 
                     value.set_bit(Bit0, true); // Read address
 
@@ -137,28 +166,24 @@ impl I2C {
         Ok(())
     }
 
-    fn write_report(&self, report: &Report) -> Result<(), I2CCommunicationError> {
+    fn write_report(&self, report: &Report) -> Result<(), I2CError> {
         match write_report(&self.data, &report) {
             Ok(_) => Ok(()),
             Err(error) => {
                 return match error {
-                    IowkitError::IOErrorIOWarrior => Err(I2CCommunicationError::IOErrorIOWarrior),
+                    IowkitError::IOErrorIOWarrior => Err(I2CError::IOErrorIOWarrior),
                 }
             }
         }
     }
 
-    fn read_report(
-        &self,
-        pipe: Pipe,
-        report_id: ReportId,
-    ) -> Result<Report, I2CCommunicationError> {
+    fn read_report(&self, pipe: Pipe, report_id: ReportId) -> Result<Report, I2CError> {
         match read_report(&self.data, pipe) {
             Ok(report) => {
                 assert_eq!(report.buffer[0], report_id.get_value());
 
                 if report.buffer[1].get_bit(Bit7) {
-                    return Err(I2CCommunicationError::IOErrorI2C);
+                    return Err(I2CError::IOErrorI2C);
                 }
 
                 match self.data.device_type {
@@ -168,7 +193,7 @@ impl I2C {
                     | IOWarriorType::IOWarrior56Dongle
                     | IOWarriorType::IOWarrior56Old => {
                         if report.buffer[1].get_bit(Bit7) {
-                            return Err(I2CCommunicationError::IOErrorI2CArbitrationLost);
+                            return Err(I2CError::IOErrorI2CArbitrationLoss);
                         }
                     }
                     _ => {}
@@ -178,7 +203,7 @@ impl I2C {
             }
             Err(error) => {
                 return match error {
-                    IowkitError::IOErrorIOWarrior => Err(I2CCommunicationError::IOErrorIOWarrior),
+                    IowkitError::IOErrorIOWarrior => Err(I2CError::IOErrorIOWarrior),
                 }
             }
         }

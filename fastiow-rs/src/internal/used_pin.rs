@@ -4,7 +4,7 @@ use std::fmt;
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct UsedPin {
     pub pin: u8,
-    pub peripheral: Peripheral,
+    pub peripheral: Option<Peripheral>,
 }
 
 impl fmt::Display for UsedPin {
