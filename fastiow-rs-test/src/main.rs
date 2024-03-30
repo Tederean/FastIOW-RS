@@ -24,7 +24,7 @@ fn bh1750() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let i2c = iowarrior.enable_i2c()?;
+        let i2c = iowarrior.setup_i2c()?;
 
         let address = I2CAddress::new(0x23)?;
 
@@ -59,7 +59,7 @@ fn bmp280() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let i2c = iowarrior.enable_i2c()?;
+        let i2c = iowarrior.setup_i2c()?;
 
         let address = I2CAddress::new(0x76)?;
 

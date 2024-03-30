@@ -11,3 +11,4 @@ libloading = "0.8.3"
 lazy_static = "1.4.0"
 iowkit-sys = { path = "../iowkit-sys" }
 log = "0.4.21"
+static_assertions = "1.1.0"

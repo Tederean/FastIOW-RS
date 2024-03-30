@@ -2,15 +2,11 @@
 #![allow(unused_variables)]
 
 mod bits;
-mod fastiow;
 mod gpio;
 mod i2c;
+mod internal;
 mod iowarrior;
-mod iowkit;
 
-pub use self::fastiow::get_iowarriors;
-pub use self::i2c::{I2CAddress, I2C};
+pub use self::gpio::*;
+pub use self::i2c::*;
 pub use self::iowarrior::*;
-
-extern crate iowkit_sys;
-extern crate libloading;

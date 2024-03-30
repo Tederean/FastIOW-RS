@@ -1,93 +1,44 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::iowkit::{
-    IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
+use crate::i2c::I2CCommunicationError;
+use crate::internal::{
+    create_report, disable_peripheral, enable_peripheral, read_report, write_report, IOWarriorData,
+    IOWarriorMutData, IowkitError, Pipe, Report, ReportId,
 };
-use crate::{IOWarriorType, Module};
+use crate::{I2CAddress, IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::{fmt, iter};
-use thiserror::Error;
-
-#[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum I2CCommunicationError {
-    #[error("IOWarrior input output error.")]
-    IOErrorIOWarrior,
-    #[error("I2C input output error.")]
-    IOErrorI2C,
-    #[error("I2C input output error, arbitration lost.")]
-    IOErrorI2CArbitrationLost,
-}
-
-#[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum I2CEnableError {
-    #[error("IOWarrior input output error.")]
-    IOErrorIOWarrior,
-    #[error("Module already enabled.")]
-    AlreadyEnabled,
-    #[error("Hardware is blocked by {0} module.")]
-    HardwareBlockedByModule(Module),
-}
 
 #[derive(Debug)]
 pub struct I2C {
-    pub(crate) data: Rc<IOWarriorData>,
-    pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    data: Rc<IOWarriorData>,
+    mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+}
+
+impl fmt::Display for I2C {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Drop for I2C {
+    fn drop(&mut self) {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        disable_peripheral(&self.data, &mut mut_data, Peripheral::I2C);
+    }
 }
 
 impl I2C {
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-    ) -> Result<I2C, I2CEnableError> {
+    ) -> Result<I2C, PeripheralSetupError> {
         {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
-            match mut_data
-                .pins_in_use
-                .iter()
-                .filter(|&x| x.module == Module::I2C)
-                .next()
-            {
-                None => {}
-                Some(_) => return Err(I2CEnableError::AlreadyEnabled),
-            };
-
-            match mut_data
-                .pins_in_use
-                .iter()
-                .filter(|&x| x.pin == data.i2c_pins[0] || x.pin == data.i2c_pins[1])
-                .next()
-            {
-                None => {}
-                Some(conflict) => {
-                    return Err(I2CEnableError::HardwareBlockedByModule(conflict.module))
-                }
-            };
-
-            if !data.cleanup_dangling_modules(&mut mut_data) {
-                return Err(I2CEnableError::IOErrorIOWarrior);
-            }
-
-            match data.enable_i2c(true) {
-                Ok(_) => {
-                    mut_data.pins_in_use.push(UsedPin {
-                        pin: data.i2c_pins[0],
-                        module: Module::I2C,
-                    });
-                    mut_data.pins_in_use.push(UsedPin {
-                        pin: data.i2c_pins[1],
-                        module: Module::I2C,
-                    });
-                }
-                Err(error) => {
-                    return match error {
-                        IowkitError::IOErrorIOWarrior => Err(I2CEnableError::IOErrorIOWarrior),
-                    };
-                }
-            }
+            enable_peripheral(&data, &mut mut_data, Peripheral::I2C)?;
         }
 
         Ok(I2C {
@@ -160,7 +111,7 @@ impl I2C {
             let chunk_length = chunk.len() as u8;
 
             {
-                let mut report = self.data.create_report(self.data.i2c_pipe);
+                let mut report = create_report(&self.data, self.data.i2c_pipe);
 
                 report.buffer[0] = report_id.get_value();
                 report.buffer[1] = chunk_length;
@@ -187,7 +138,7 @@ impl I2C {
     }
 
     fn write_report(&self, report: &Report) -> Result<(), I2CCommunicationError> {
-        match self.data.write_report(&report) {
+        match write_report(&self.data, &report) {
             Ok(_) => Ok(()),
             Err(error) => {
                 return match error {
@@ -202,7 +153,7 @@ impl I2C {
         pipe: Pipe,
         report_id: ReportId,
     ) -> Result<Report, I2CCommunicationError> {
-        match self.data.read_report(pipe) {
+        match read_report(&self.data, pipe) {
             Ok(report) => {
                 assert_eq!(report.buffer[0], report_id.get_value());
 
@@ -231,61 +182,5 @@ impl I2C {
                 }
             }
         }
-    }
-}
-
-impl Drop for I2C {
-    fn drop(&mut self) {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        match self.data.enable_i2c(false) {
-            Ok(_) => {}
-            Err(_) => mut_data.dangling_modules.push(Module::I2C),
-        }
-
-        mut_data.pins_in_use.retain(|x| x.module == Module::I2C);
-    }
-}
-
-impl fmt::Display for I2C {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum I2CAddressError {
-    #[error("Address is to large for a valid 7 bit I2C address.")]
-    NotA7BitAddress,
-    #[error("Reserved I2C addresses are not allowed.")]
-    ReservedAddress,
-}
-
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct I2CAddress {
-    address: u8,
-}
-
-impl I2CAddress {
-    pub const fn new(address: u8) -> Result<I2CAddress, I2CAddressError> {
-        if address > 127 {
-            return Err(I2CAddressError::NotA7BitAddress);
-        }
-
-        match address > 0 && !(address >= 0x78 && address <= 0x7F) {
-            true => Ok(I2CAddress { address }),
-            false => Err(I2CAddressError::ReservedAddress),
-        }
-    }
-
-    pub const fn to_inner(&self) -> u8 {
-        self.address
-    }
-}
-
-impl fmt::Display for I2CAddress {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
     }
 }
