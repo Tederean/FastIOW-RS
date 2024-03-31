@@ -13,7 +13,7 @@ pub struct IOWarriorData {
     pub standard_report_size: usize,
     pub special_report_size: usize,
     pub i2c_pipe: Pipe,
-    pub i2c_pins: [u8; 2],
+    pub i2c_pins: Vec<u8>,
     pub is_valid_gpio: fn(u8) -> bool,
 }
 

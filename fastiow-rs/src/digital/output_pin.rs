@@ -89,7 +89,7 @@ impl OutputPin {
         mut_data: &mut RefMut<IOWarriorMutData>,
         pin_state: PinState,
     ) -> Result<(), PinError> {
-        let byte_index = (self.pin as usize) / 8usize;
+        let byte_index = ((self.pin as usize) / 8usize) + 1;
         let bit_index = Bit::from(self.pin % 8u8);
 
         mut_data.pins_write_report.buffer[byte_index].set_bit(bit_index, bool::from(pin_state));
@@ -102,7 +102,7 @@ impl OutputPin {
         mut_data: &mut RefMut<IOWarriorMutData>,
         expected_pin_state: PinState,
     ) -> bool {
-        let byte_index = (self.pin as usize) / 8usize;
+        let byte_index = ((self.pin as usize) / 8usize) + 1;
         let bit_index = Bit::from(self.pin % 8u8);
 
         let value = mut_data.pins_write_report.buffer[byte_index].get_bit(bit_index);

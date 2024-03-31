@@ -1,7 +1,7 @@
 use crate::internal::{
     IOWarriorData, IOWarriorMutData, IowkitError, PinType, Pipe, Report, ReportId, UsedPin,
 };
-use crate::{IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
+use crate::{I2CMode, IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
 use iowkit_sys::bindings;
 use std::cell::RefMut;
 
@@ -76,10 +76,11 @@ pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, IowkitErr
     Ok(report)
 }
 
-pub fn enable_peripheral(
+fn precheck_peripheral(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
     peripheral: Peripheral,
+    required_pins: &Vec<u8>,
 ) -> Result<(), PeripheralSetupError> {
     match mut_data
         .pins_in_use
@@ -96,44 +97,44 @@ pub fn enable_peripheral(
         false => return Err(PeripheralSetupError::IOErrorIOWarrior),
     }
 
-    match peripheral {
-        Peripheral::I2C => {
-            match mut_data
-                .pins_in_use
-                .iter()
-                .filter(|x| x.pin == data.i2c_pins[0] || x.pin == data.i2c_pins[1])
-                .next()
-            {
-                None => {}
-                Some(used_pin) => {
-                    return Err(PeripheralSetupError::BlockedByGpio(used_pin.pin));
-                }
-            }
+    let pin_conflicts: Vec<_> = mut_data
+        .pins_in_use
+        .iter()
+        .filter(|x| required_pins.iter().any(|pin| *pin == x.pin))
+        .map(|x| x.pin.clone())
+        .collect();
 
-            match send_enable_i2c(&data, true) {
-                Ok(_) => {
-                    mut_data.pins_in_use.push(UsedPin {
-                        peripheral: Some(Peripheral::I2C),
-                        pin: data.i2c_pins[0],
-                    });
-
-                    mut_data.pins_in_use.push(UsedPin {
-                        peripheral: Some(Peripheral::I2C),
-                        pin: data.i2c_pins[1],
-                    });
-                }
-                Err(error) => {
-                    return match error {
-                        IowkitError::IOErrorIOWarrior => {
-                            Err(PeripheralSetupError::IOErrorIOWarrior)
-                        }
-                    }
-                }
-            }
-        }
+    if !pin_conflicts.is_empty() {
+        return Err(PeripheralSetupError::PinsBlocked(pin_conflicts));
     }
 
     Ok(())
+}
+
+pub fn enable_i2c(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    i2c_mode: I2CMode,
+) -> Result<(), PeripheralSetupError> {
+    precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
+
+    match send_enable_i2c(&data, i2c_mode) {
+        Ok(_) => {
+            mut_data
+                .pins_in_use
+                .extend(data.i2c_pins.iter().map(|pin| UsedPin {
+                    peripheral: Some(Peripheral::I2C),
+                    pin: pin.clone(),
+                }));
+
+            Ok(())
+        }
+        Err(error) => {
+            return match error {
+                IowkitError::IOErrorIOWarrior => Err(PeripheralSetupError::IOErrorIOWarrior),
+            }
+        }
+    }
 }
 
 pub fn disable_peripheral(
@@ -142,7 +143,7 @@ pub fn disable_peripheral(
     peripheral: Peripheral,
 ) {
     match peripheral {
-        Peripheral::I2C => match send_enable_i2c(&data, false) {
+        Peripheral::I2C => match send_disable_i2c(&data) {
             Ok(_) => {
                 mut_data
                     .pins_in_use
@@ -159,7 +160,7 @@ fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarrio
     if !mut_data.dangling_peripherals.is_empty() {
         for x in mut_data.dangling_peripherals.to_vec() {
             match x {
-                Peripheral::I2C => match send_enable_i2c(&data, false) {
+                Peripheral::I2C => match send_disable_i2c(&data) {
                     Ok(_) => mut_data.dangling_peripherals.retain(|y| *y != x),
                     Err(_) => {}
                 },
@@ -201,8 +202,6 @@ pub fn enable_gpio(
         false => return Err(PinSetupError::IOErrorIOWarrior),
     }
 
-    // TODO Send Report with err handling
-
     mut_data.pins_in_use.push(UsedPin {
         pin,
         peripheral: None,
@@ -217,21 +216,52 @@ pub fn disable_gpio(
     pin_type: PinType,
     pin: u8,
 ) {
-    // TODO Send Report with err handling
-
     mut_data.pins_in_use.retain(|x| x.pin == pin);
-
-    // Err mut_data.dangling_peripherals.push(Peripheral::I2C);
 }
 
-fn send_enable_i2c(data: &IOWarriorData, enable: bool) -> Result<(), IowkitError> {
+fn send_enable_i2c(data: &IOWarriorData, i2c_mode: I2CMode) -> Result<(), IowkitError> {
     let mut report = create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
-    report.buffer[1] = match enable {
-        true => 0x01,
-        false => 0x00,
-    };
+    report.buffer[1] = 0x01;
+
+    match data.device_type {
+        IOWarriorType::IOWarrior56
+        | IOWarriorType::IOWarrior56Old
+        | IOWarriorType::IOWarrior56Dongle => {
+            match i2c_mode {
+                I2CMode::Standard => {
+                    report.buffer[2] = 0x00; // 93.75kHz
+                }
+                I2CMode::Fast | I2CMode::FastPlus => {
+                    report.buffer[2] = 0x01; // 375kHz
+                }
+            }
+        }
+        IOWarriorType::IOWarrior100 => {
+            match i2c_mode {
+                I2CMode::Standard => {
+                    report.buffer[2] = 0x00; // 100 kbit/s
+                }
+                I2CMode::Fast => {
+                    report.buffer[2] = 0x01; // 400 kbit/s
+                }
+                I2CMode::FastPlus => {
+                    report.buffer[2] = 0x04; // 1000 kbit/s
+                }
+            }
+        }
+        _ => {}
+    }
+
+    write_report(&data, &mut report)
+}
+
+fn send_disable_i2c(data: &IOWarriorData) -> Result<(), IowkitError> {
+    let mut report = create_report(&data, data.i2c_pipe);
+
+    report.buffer[0] = ReportId::I2cSetup.get_value();
+    report.buffer[1] = 0x00;
 
     write_report(&data, &mut report)
 }

@@ -79,7 +79,7 @@ impl InputPin {
             }
         };
 
-        let byte_index = (self.pin as usize) / 8usize;
+        let byte_index = ((self.pin as usize) / 8usize) + 1;
         let bit_index = Bit::from(self.pin % 8u8);
 
         let value = mut_data.pins_read_report.buffer[byte_index].get_bit(bit_index);

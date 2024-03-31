@@ -4,12 +4,13 @@ use std::fmt;
 pub enum IOWarriorType {
     IOWarrior40,
     IOWarrior24,
+    IOWarrior24Old,
     IOWarrior28,
     IOWarrior28Dongle,
     IOWarrior28L,
     IOWarrior56,
-    IOWarrior56Dongle,
     IOWarrior56Old,
+    IOWarrior56Dongle,
     IOWarrior100,
 }
 

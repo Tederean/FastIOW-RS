@@ -1,12 +1,12 @@
-use std::thread;
-use std::time::Duration;
+#![allow(dead_code)]
+
 use anyhow::Result;
 use byteorder::{BigEndian, ByteOrder};
 use embedded_hal::digital::OutputPin;
 use embedded_hal::i2c::{I2c, Operation as I2cOperation};
-use fastiow_rs::get_iowarriors;
-
-#[allow(dead_code)]
+use fastiow_rs::{get_iowarriors, I2CMode};
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     match pins() {
@@ -19,7 +19,7 @@ fn pins() -> Result<()> {
     let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
 
     for iowarrior in &mut iowarriors {
-        let mut pin = iowarrior.setup_output(24)?;
+        let mut pin = iowarrior.setup_output(8 * 2 + 0)?;
 
         pin.set_high()?;
 
@@ -42,7 +42,7 @@ fn bh1750() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c()?;
+        let mut i2c = iowarrior.setup_i2c(I2CMode::Standard)?;
 
         let mut brightness_buffer = [0u8; 2];
 
@@ -74,7 +74,7 @@ fn bmp280() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c()?;
+        let mut i2c = iowarrior.setup_i2c(I2CMode::Standard)?;
 
         let mut raw_buffer = [0u8; 4];
 
