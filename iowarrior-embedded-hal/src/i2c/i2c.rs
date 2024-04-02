@@ -4,7 +4,7 @@ use crate::internal::{
     create_report, disable_peripheral, enable_i2c, read_report, write_report, IOWarriorData,
     IOWarriorMutData, IowkitError, Pipe, Report, ReportId,
 };
-use crate::{I2CError, I2CMode, IOWarriorType, Peripheral, PeripheralSetupError};
+use crate::{I2CConfig, I2CError, IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::{fmt, iter};
@@ -57,15 +57,17 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
 }
 
 impl I2C {
+
+
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-        i2c_mode: I2CMode,
+        i2c_config: I2CConfig,
     ) -> Result<I2C, PeripheralSetupError> {
         {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
-            enable_i2c(&data, &mut mut_data, i2c_mode)?;
+            enable_i2c(&data, &mut mut_data, i2c_config)?;
         }
 
         Ok(I2C {

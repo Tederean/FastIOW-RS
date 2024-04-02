@@ -3,13 +3,12 @@ use crate::internal::{
     IowkitError, Pipe, Report, ReportId,
 };
 use crate::{IOWarrior, IOWarriorType, SerialNumberError};
-use iowkit_sys::bindings::{Iowkit, ULONG};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
 pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
-    let iowkit = unsafe { Iowkit::new(path) }?;
+    let iowkit = unsafe { iowkit_sys::Iowkit::new(path) }?;
     let iowkit_handle = unsafe { iowkit.IowKitOpenDevice() };
 
     if iowkit_handle.is_null() {
@@ -36,7 +35,7 @@ pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
     Ok(vec)
 }
 
-fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: ULONG) -> Option<IOWarrior> {
+fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Option<IOWarrior> {
     let device_handle = unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) };
 
     if device_handle.is_null() {
@@ -47,12 +46,12 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: ULONG) -> Option<IOWarrio
     let device_revision = unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle) } as u64;
 
     let device_type = match device_product_id {
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW40 => IOWarriorType::IOWarrior40,
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW24 => IOWarriorType::IOWarrior24,
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW56 => IOWarriorType::IOWarrior56,
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28 => IOWarriorType::IOWarrior28,
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW28L => IOWarriorType::IOWarrior28L,
-        iowkit_sys::bindings::IOWKIT_PRODUCT_ID_IOW100 => IOWarriorType::IOWarrior100,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW40 => IOWarriorType::IOWarrior40,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW24 => IOWarriorType::IOWarrior24,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW56 => IOWarriorType::IOWarrior56,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW28 => IOWarriorType::IOWarrior28,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW28L => IOWarriorType::IOWarrior28L,
+        iowkit_sys::IOWKIT_PRODUCT_ID_IOW100 => IOWarriorType::IOWarrior100,
         _ => return None,
     };
 

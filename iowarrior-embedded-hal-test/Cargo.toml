@@ -1,12 +1,12 @@
 [package]
-name = "fastiow-rs-test"
+name = "iowarrior-embedded-hal-test"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-fastiow-rs = { path = "../fastiow-rs" }
+iowarrior-embedded-hal = { path = "../iowarrior-embedded-hal" }
 anyhow = "1.0.81"
 byteorder = "1.5.0"
 embedded-hal = "1.0.0"

@@ -1,11 +1,12 @@
 use crate::internal::{
     IOWarriorData, IOWarriorMutData, IowkitError, PinType, Pipe, Report, ReportId, UsedPin,
 };
-use crate::{I2CMode, IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
-use iowkit_sys::bindings;
+use crate::{I2CConfig, IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
 use std::cell::RefMut;
+use crate::bits::Bit;
+use crate::bits::Bitmasking;
 
-static_assertions::assert_eq_size!(*mut u8, bindings::PCHAR);
+static_assertions::assert_eq_size!(*mut u8, iowkit_sys::PCHAR);
 
 pub fn create_report(data: &IOWarriorData, pipe: Pipe) -> Report {
     Report {
@@ -25,9 +26,9 @@ pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), IowkitE
     let written_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitWrite(
             data.device_handle,
-            report.pipe.get_value() as bindings::ULONG,
-            report.buffer.as_ptr() as bindings::PCHAR,
-            report.buffer.len() as bindings::ULONG,
+            report.pipe.get_value() as iowkit_sys::ULONG,
+            report.buffer.as_ptr() as iowkit_sys::PCHAR,
+            report.buffer.len() as iowkit_sys::ULONG,
         )
     } as usize;
 
@@ -44,9 +45,9 @@ pub fn read_report_non_blocking(data: &IOWarriorData, pipe: Pipe) -> Option<Repo
     let read_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitReadNonBlocking(
             data.device_handle,
-            report.pipe.get_value() as bindings::ULONG,
-            report.buffer.as_mut_ptr() as bindings::PCHAR,
-            report.buffer.len() as bindings::ULONG,
+            report.pipe.get_value() as iowkit_sys::ULONG,
+            report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
+            report.buffer.len() as iowkit_sys::ULONG,
         )
     } as usize;
 
@@ -63,9 +64,9 @@ pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, IowkitErr
     let read_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitRead(
             data.device_handle,
-            report.pipe.get_value() as bindings::ULONG,
-            report.buffer.as_mut_ptr() as bindings::PCHAR,
-            report.buffer.len() as bindings::ULONG,
+            report.pipe.get_value() as iowkit_sys::ULONG,
+            report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
+            report.buffer.len() as iowkit_sys::ULONG,
         )
     } as usize;
 
@@ -114,11 +115,11 @@ fn precheck_peripheral(
 pub fn enable_i2c(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    i2c_mode: I2CMode,
+    i2c_config: I2CConfig,
 ) -> Result<(), PeripheralSetupError> {
     precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
 
-    match send_enable_i2c(&data, i2c_mode) {
+    match send_enable_i2c(&data, i2c_config) {
         Ok(_) => {
             mut_data
                 .pins_in_use
@@ -202,24 +203,65 @@ pub fn enable_gpio(
         false => return Err(PinSetupError::IOErrorIOWarrior),
     }
 
-    mut_data.pins_in_use.push(UsedPin {
-        pin,
-        peripheral: None,
-    });
+    match set_pin_type(&data, mut_data, pin_type, pin) {
+        Ok(_) => {
+            mut_data.pins_in_use.push(UsedPin {
+                pin,
+                peripheral: None,
+            });
 
-    Ok(())
+            Ok(())
+        }
+        Err(error) => {
+            Err(match error {
+                IowkitError::IOErrorIOWarrior => PinSetupError::IOErrorIOWarrior
+            })
+        }
+    }
 }
 
 pub fn disable_gpio(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    pin_type: PinType,
     pin: u8,
 ) {
+    match set_pin_type(&data, mut_data, PinType::Input, pin) {
+        Ok(_) => {}
+        Err(_) => { /* Ignore error. Every following pin and peripheral can handle this. */}
+    };
+
     mut_data.pins_in_use.retain(|x| x.pin == pin);
 }
 
-fn send_enable_i2c(data: &IOWarriorData, i2c_mode: I2CMode) -> Result<(), IowkitError> {
+fn set_pin_type(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pin_type: PinType,
+    pin: u8,
+) -> Result<(), IowkitError> {
+    let byte_index = ((pin as usize) / 8usize) + 1;
+    let bit_index = Bit::from(pin % 8u8);
+
+    let mut pins_write_report = mut_data.pins_write_report.clone();
+
+    pins_write_report.buffer[byte_index].set_bit(bit_index, match pin_type {
+        PinType::Input => true,
+        PinType::Output => false,
+    });
+
+    match write_report(&data, &pins_write_report) {
+        Ok(_) => {
+            mut_data.pins_write_report = pins_write_report;
+
+            Ok(())
+        }
+        Err(error) => {
+            Err(error)
+        }
+    }
+}
+
+fn send_enable_i2c(data: &IOWarriorData, i2c_config: I2CConfig) -> Result<(), IowkitError> {
     let mut report = create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
@@ -229,27 +271,10 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_mode: I2CMode) -> Result<(), Iowkit
         IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Old
         | IOWarriorType::IOWarrior56Dongle => {
-            match i2c_mode {
-                I2CMode::Standard => {
-                    report.buffer[2] = 0x00; // 93.75kHz
-                }
-                I2CMode::Fast | I2CMode::FastPlus => {
-                    report.buffer[2] = 0x01; // 375kHz
-                }
-            }
+            report.buffer[2] = i2c_config.iow56_clock.get_value();
         }
         IOWarriorType::IOWarrior100 => {
-            match i2c_mode {
-                I2CMode::Standard => {
-                    report.buffer[2] = 0x00; // 100 kbit/s
-                }
-                I2CMode::Fast => {
-                    report.buffer[2] = 0x01; // 400 kbit/s
-                }
-                I2CMode::FastPlus => {
-                    report.buffer[2] = 0x04; // 1000 kbit/s
-                }
-            }
+            report.buffer[2] = i2c_config.iow100_speed.get_value();
         }
         _ => {}
     }

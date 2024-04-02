@@ -1,13 +1,12 @@
 use crate::internal::{IowkitData, Pipe};
 use crate::IOWarriorType;
-use iowkit_sys::bindings::IOWKIT_HANDLE;
 use std::fmt;
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct IOWarriorData {
     pub iowkit_data: Arc<IowkitData>,
-    pub device_handle: IOWKIT_HANDLE,
+    pub device_handle: iowkit_sys::IOWKIT_HANDLE,
     pub device_revision: u64,
     pub device_type: IOWarriorType,
     pub standard_report_size: usize,

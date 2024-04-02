@@ -1,9 +1,6 @@
 use crate::internal::{IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::iowarrior_service;
-use crate::{
-    I2CMode, IOWarriorType, InputPin, OutputPin, PeripheralSetupError, PinSetupError,
-    SerialNumberError, I2C,
-};
+use crate::{IOWarriorType, InputPin, OutputPin, PeripheralSetupError, PinSetupError, SerialNumberError, I2C, I2CConfig};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -33,8 +30,17 @@ impl IOWarrior {
         iowarrior_service::get_serial_number(&self.data)
     }
 
-    pub fn setup_i2c(&self, i2c_mode: I2CMode) -> Result<I2C, PeripheralSetupError> {
-        I2C::new(&self.data, &self.mut_data_refcell, i2c_mode)
+    pub fn setup_i2c_with_config(&self, i2c_config: I2CConfig) -> Result<I2C, PeripheralSetupError> {
+        I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
+    }
+
+    pub fn setup_i2c(&self) -> Result<I2C, PeripheralSetupError> {
+        let i2c_config = I2CConfig {
+            iow56_clock: Default::default(),
+            iow100_speed: Default::default(),
+        };
+
+        I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
     }
 
     pub fn setup_output(&self, pin: u8) -> Result<OutputPin, PinSetupError> {

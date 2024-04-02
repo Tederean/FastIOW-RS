@@ -61,7 +61,7 @@ impl Drop for OutputPin {
     fn drop(&mut self) {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
-        disable_gpio(&self.data, &mut mut_data, PinType::Output, self.pin);
+        disable_gpio(&self.data, &mut mut_data, self.pin);
     }
 }
 

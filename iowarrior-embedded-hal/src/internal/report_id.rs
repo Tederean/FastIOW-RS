@@ -24,6 +24,7 @@ impl fmt::Display for ReportId {
 }
 
 impl ReportId {
+    #[inline]
     pub fn get_value(&self) -> u8 {
         *self as u8
     }

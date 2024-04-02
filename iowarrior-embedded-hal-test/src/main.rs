@@ -4,7 +4,7 @@ use anyhow::Result;
 use byteorder::{BigEndian, ByteOrder};
 use embedded_hal::digital::OutputPin;
 use embedded_hal::i2c::{I2c, Operation as I2cOperation};
-use fastiow_rs::{get_iowarriors, I2CMode};
+use iowarrior_embedded_hal::{get_iowarriors};
 use std::thread;
 use std::time::Duration;
 
@@ -42,7 +42,7 @@ fn bh1750() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c(I2CMode::Standard)?;
+        let mut i2c = iowarrior.setup_i2c()?;
 
         let mut brightness_buffer = [0u8; 2];
 
@@ -74,7 +74,7 @@ fn bmp280() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c(I2CMode::Standard)?;
+        let mut i2c = iowarrior.setup_i2c()?;
 
         let mut raw_buffer = [0u8; 4];
 

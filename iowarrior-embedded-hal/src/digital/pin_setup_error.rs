@@ -6,12 +6,12 @@ use thiserror::Error;
 pub enum PinSetupError {
     #[error("IOWarrior input output error.")]
     IOErrorIOWarrior,
-    #[error("GPIO not existing.")]
+    #[error("Pin not existing.")]
     PinNotExisting,
-    #[error("GPIO already configured.")]
+    #[error("Pin already configured.")]
     AlreadySetup,
-    #[error("GPIO is blocked by peripheral {0}.")]
+    #[error("Pin is blocked by peripheral {0}.")]
     BlockedByPeripheral(Peripheral),
-    #[error("GPIOs are not supported by hardware.")]
+    #[error("Pins are not supported by hardware.")]
     NotSupported,
 }

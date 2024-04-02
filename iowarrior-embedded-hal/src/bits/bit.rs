@@ -19,6 +19,7 @@ impl fmt::Display for Bit {
 }
 
 impl Bit {
+    #[inline]
     pub fn from(bit_index: u8) -> Bit {
         match bit_index {
             0 => Bit::Bit0,
@@ -29,10 +30,11 @@ impl Bit {
             5 => Bit::Bit5,
             6 => Bit::Bit6,
             7 => Bit::Bit7,
-            _ => panic!(),
+            _ => panic!("bit index {} is out of bounds for u8", bit_index),
         }
     }
 
+    #[inline]
     pub const fn get_value(&self) -> u8 {
         *self as u8
     }

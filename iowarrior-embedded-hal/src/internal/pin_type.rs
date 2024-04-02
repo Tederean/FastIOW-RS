@@ -1,13 +1,12 @@
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum I2CMode {
-    Standard,
-    Fast,
-    FastPlus,
+pub enum PinType {
+    Input,
+    Output,
 }
 
-impl fmt::Display for I2CMode {
+impl fmt::Display for PinType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }

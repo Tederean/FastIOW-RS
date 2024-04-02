@@ -12,4 +12,5 @@
 // We avoid generating layout tests because they cause a large number of
 // warnings and according to commentary are not useful. See
 // https://github.com/rust-lang/rust-bindgen/issues/1651 for more.
-pub mod bindings;
+mod bindings;
+pub use self::bindings::*;

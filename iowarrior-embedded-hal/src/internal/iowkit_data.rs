@@ -1,4 +1,4 @@
-use iowkit_sys::bindings::{Iowkit, IOWKIT_HANDLE};
+use iowkit_sys::{Iowkit, IOWKIT_HANDLE};
 use std::fmt;
 
 #[derive(Debug)]
