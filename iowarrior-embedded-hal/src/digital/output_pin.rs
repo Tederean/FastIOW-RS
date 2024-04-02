@@ -1,8 +1,6 @@
 use crate::bits::{Bit, Bitmasking};
-use crate::internal::{
-    disable_gpio, enable_gpio, write_report, IOWarriorData, IOWarriorMutData, PinType,
-};
-use crate::{map_error, PinError, PinSetupError};
+use crate::digital::{map_error, PinError, PinSetupError};
+use crate::internal::{disable_gpio, enable_gpio, IOWarriorData, IOWarriorMutData, set_pin_output};
 use embedded_hal::digital::PinState;
 use std::cell::{RefCell, RefMut};
 use std::fmt;
@@ -70,11 +68,12 @@ impl OutputPin {
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         pin: u8,
+        initial_pin_state: PinState,
     ) -> Result<OutputPin, PinSetupError> {
         {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
-            enable_gpio(&data, &mut mut_data, PinType::Output, pin)?;
+            enable_gpio(&data, &mut mut_data, initial_pin_state, pin)?;
         }
 
         Ok(OutputPin {
@@ -89,12 +88,7 @@ impl OutputPin {
         mut_data: &mut RefMut<IOWarriorMutData>,
         pin_state: PinState,
     ) -> Result<(), PinError> {
-        let byte_index = ((self.pin as usize) / 8usize) + 1;
-        let bit_index = Bit::from(self.pin % 8u8);
-
-        mut_data.pins_write_report.buffer[byte_index].set_bit(bit_index, bool::from(pin_state));
-
-        map_error(write_report(&self.data, &mut_data.pins_write_report))
+        map_error(set_pin_output(&self.data, mut_data, pin_state, self.pin))
     }
 
     fn is_set(

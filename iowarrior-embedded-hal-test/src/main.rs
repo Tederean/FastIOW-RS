@@ -2,11 +2,11 @@
 
 use anyhow::Result;
 use byteorder::{BigEndian, ByteOrder};
-use embedded_hal::digital::OutputPin;
 use embedded_hal::i2c::{I2c, Operation as I2cOperation};
-use iowarrior_embedded_hal::{get_iowarriors};
+use iowarrior_embedded_hal::get_iowarriors;
 use std::thread;
 use std::time::Duration;
+use embedded_hal::digital::OutputPin;
 
 fn main() {
     match pins() {
@@ -19,13 +19,11 @@ fn pins() -> Result<()> {
     let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
 
     for iowarrior in &mut iowarriors {
-        let mut pin = iowarrior.setup_output(8 * 2 + 0)?;
-
-        pin.set_high()?;
+        let pin = iowarrior.setup_output_as_low(8 * 2 + 0)?;
 
         thread::sleep(Duration::from_secs(1));
 
-        pin.set_low()?;
+        drop(pin);
     }
 
     Ok(())

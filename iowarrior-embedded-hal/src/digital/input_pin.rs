@@ -1,9 +1,9 @@
 use crate::bits::{Bit, Bitmasking};
+use crate::digital::{PinError, PinSetupError};
 use crate::internal::{
-    disable_gpio, enable_gpio, read_report_non_blocking, IOWarriorData, IOWarriorMutData, PinType,
+    disable_gpio, enable_gpio, read_report_non_blocking, IOWarriorData, IOWarriorMutData,
     Pipe,
 };
-use crate::{PinError, PinSetupError};
 use embedded_hal::digital::PinState;
 use std::cell::{RefCell, RefMut};
 use std::fmt;
@@ -61,7 +61,7 @@ impl InputPin {
         {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
-            enable_gpio(&data, &mut mut_data, PinType::Input, pin)?;
+            enable_gpio(&data, &mut mut_data, PinState::High, pin)?;
         }
 
         Ok(InputPin {

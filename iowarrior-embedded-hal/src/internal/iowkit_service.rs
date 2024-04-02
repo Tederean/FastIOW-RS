@@ -1,10 +1,13 @@
-use crate::internal::{
-    IOWarriorData, IOWarriorMutData, IowkitError, PinType, Pipe, Report, ReportId, UsedPin,
-};
-use crate::{I2CConfig, IOWarriorType, Peripheral, PeripheralSetupError, PinSetupError};
-use std::cell::RefMut;
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
+use crate::digital::PinSetupError;
+use crate::i2c::I2CConfig;
+use crate::internal::{
+    IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
+};
+use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
+use std::cell::RefMut;
+use embedded_hal::digital::PinState;
 
 static_assertions::assert_eq_size!(*mut u8, iowkit_sys::PCHAR);
 
@@ -175,7 +178,7 @@ fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarrio
 pub fn enable_gpio(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    pin_type: PinType,
+    pin_state: PinState,
     pin: u8,
 ) -> Result<(), PinSetupError> {
     if data.device_type == IOWarriorType::IOWarrior28Dongle
@@ -203,7 +206,7 @@ pub fn enable_gpio(
         false => return Err(PinSetupError::IOErrorIOWarrior),
     }
 
-    match set_pin_type(&data, mut_data, pin_type, pin) {
+    match set_pin_output(&data, mut_data, pin_state, pin) {
         Ok(_) => {
             mut_data.pins_in_use.push(UsedPin {
                 pin,
@@ -212,31 +215,25 @@ pub fn enable_gpio(
 
             Ok(())
         }
-        Err(error) => {
-            Err(match error {
-                IowkitError::IOErrorIOWarrior => PinSetupError::IOErrorIOWarrior
-            })
-        }
+        Err(error) => Err(match error {
+            IowkitError::IOErrorIOWarrior => PinSetupError::IOErrorIOWarrior,
+        }),
     }
 }
 
-pub fn disable_gpio(
-    data: &IOWarriorData,
-    mut_data: &mut RefMut<IOWarriorMutData>,
-    pin: u8,
-) {
-    match set_pin_type(&data, mut_data, PinType::Input, pin) {
+pub fn disable_gpio(data: &IOWarriorData, mut_data: &mut RefMut<IOWarriorMutData>, pin: u8) {
+    match set_pin_output(&data, mut_data, PinState::High, pin) {
         Ok(_) => {}
-        Err(_) => { /* Ignore error. Every following pin and peripheral can handle this. */}
+        Err(_) => { /* Ignore error. Every following pin and peripheral can handle this. */ }
     };
 
     mut_data.pins_in_use.retain(|x| x.pin == pin);
 }
 
-fn set_pin_type(
+pub fn set_pin_output(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    pin_type: PinType,
+    pin_state: PinState,
     pin: u8,
 ) -> Result<(), IowkitError> {
     let byte_index = ((pin as usize) / 8usize) + 1;
@@ -244,20 +241,17 @@ fn set_pin_type(
 
     let mut pins_write_report = mut_data.pins_write_report.clone();
 
-    pins_write_report.buffer[byte_index].set_bit(bit_index, match pin_type {
-        PinType::Input => true,
-        PinType::Output => false,
-    });
+    pins_write_report.buffer[byte_index].set_bit(
+        bit_index,
+        bool::from(pin_state),
+    );
 
     match write_report(&data, &pins_write_report) {
         Ok(_) => {
             mut_data.pins_write_report = pins_write_report;
-
             Ok(())
         }
-        Err(error) => {
-            Err(error)
-        }
+        Err(error) => Err(error),
     }
 }
 

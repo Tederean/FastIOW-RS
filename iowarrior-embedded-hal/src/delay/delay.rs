@@ -1,9 +1,8 @@
-use std::{fmt, thread};
 use std::time::Duration;
+use std::{fmt, thread};
 
 #[derive(Debug)]
-pub struct DelayNs {
-}
+pub struct DelayNs {}
 
 impl fmt::Display for DelayNs {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
