@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.58"
-libloading = "0.8.3"
+thiserror = "1.0"
+libloading = "0.8"
 iowkit-sys = { path = "../iowkit-sys" }
-static_assertions = "1.1.0"
-embedded-hal = "1.0.0"
+static_assertions = "1.1"
+embedded-hal = "1"

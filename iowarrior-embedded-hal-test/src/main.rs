@@ -7,9 +7,11 @@ use embedded_hal::pwm::SetDutyCycle;
 use iowarrior_embedded_hal::get_iowarriors;
 use std::thread;
 use std::time::Duration;
+use bme280::i2c::BME280;
+use iowarrior_embedded_hal::delay::Delay;
 
 fn main() {
-    match pwm() {
+    match bmp280() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
@@ -84,20 +86,18 @@ fn bmp280() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c()?;
+        let i2c = iowarrior.setup_i2c()?;
+        let mut delay = Delay::default();
 
-        let mut raw_buffer = [0u8; 4];
+        let mut bme280 = BME280::new_primary(i2c);
 
-        let mut ops = [
-            I2cOperation::Write(&[0xFA]),
-            I2cOperation::Read(&mut raw_buffer.as_mut_slice()[1..3]),
-        ];
+        bme280.init(&mut delay).unwrap();
 
-        i2c.transaction(0x76, &mut ops)?;
+        let measurements = bme280.measure(&mut delay).unwrap();
 
-        let raw_temperature = BigEndian::read_u32(&raw_buffer);
-
-        println!("{:?}", &raw_temperature);
+        println!("Relative Humidity = {}%", measurements.humidity);
+        println!("Temperature = {} deg C", measurements.temperature);
+        println!("Pressure = {} pascals", measurements.pressure);
     }
 
     Ok(())

@@ -8,7 +8,7 @@ edition = "2021"
 exclude = ["iowkit.h"]
 
 [dependencies]
-libloading = "0.8.3"
+libloading = "0.8"
 
 [features]
 default = []

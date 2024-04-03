@@ -2,15 +2,21 @@ use std::time::Duration;
 use std::{fmt, thread};
 
 #[derive(Debug)]
-pub struct DelayNs {}
+pub struct Delay {}
 
-impl fmt::Display for DelayNs {
+impl fmt::Display for Delay {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
 
-impl embedded_hal::delay::DelayNs for DelayNs {
+impl Default for Delay {
+    fn default() -> Self {
+        Delay {}
+    }
+}
+
+impl embedded_hal::delay::DelayNs for Delay {
     #[inline]
     fn delay_ns(&mut self, ns: u32) {
         thread::sleep(Duration::from_nanos(ns as u64));
