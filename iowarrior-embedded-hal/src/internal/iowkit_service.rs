@@ -6,6 +6,7 @@ use crate::internal::{
     IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
 };
 use crate::pwm::{IOWarriorPWMType, PWMData};
+use crate::spi::SPIConfig;
 use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
@@ -92,6 +93,20 @@ pub fn get_used_pins(
         .filter(|x| x.peripheral == Some(Peripheral::SPI))
         .map(|x| x.clone())
         .collect()
+}
+
+pub fn enable_spi(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    spi_config: SPIConfig,
+) -> Result<(), PeripheralSetupError> {
+    todo!()
+
+    //precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
+
+    //let result = send_enable_pwm(&data, pwm_data);
+
+    //post_enable(mut_data, pwm_pins, Peripheral::PWM, result)
 }
 
 pub fn enable_pwm(

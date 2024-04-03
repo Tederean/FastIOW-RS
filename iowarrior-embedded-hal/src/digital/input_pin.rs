@@ -15,10 +15,12 @@ pub struct InputPin {
     pin: u8,
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::ErrorType for InputPin {
     type Error = PinError;
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::InputPin for InputPin {
     fn is_high(&mut self) -> Result<bool, Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
@@ -29,6 +31,27 @@ impl embedded_hal::digital::InputPin for InputPin {
     }
 
     fn is_low(&mut self) -> Result<bool, Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        let result = self.is(&mut mut_data, PinState::Low);
+
+        Ok(result)
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::digital::v2::InputPin for InputPin {
+    type Error = PinError;
+
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        let result = self.is(&mut mut_data, PinState::High);
+
+        Ok(result)
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
         let result = self.is(&mut mut_data, PinState::Low);

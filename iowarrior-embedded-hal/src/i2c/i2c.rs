@@ -30,10 +30,12 @@ impl Drop for I2C {
     }
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::ErrorType for I2C {
     type Error = I2CError;
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
     fn transaction(
         &mut self,
@@ -54,6 +56,39 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::blocking::i2c::Write for I2C {
+    type Error = I2CError;
+
+    fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        self.write_data(address, bytes)
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::blocking::i2c::Read for I2C {
+    type Error = I2CError;
+
+    fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        self.read_data(address, buffer)
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::blocking::i2c::WriteRead for I2C {
+    type Error = I2CError;
+
+    fn write_read(
+        &mut self,
+        address: u8,
+        bytes: &[u8],
+        buffer: &mut [u8],
+    ) -> Result<(), Self::Error> {
+        self.write_data(address, bytes)?;
+        self.read_data(address, buffer)
     }
 }
 

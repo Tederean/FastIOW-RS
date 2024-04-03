@@ -3,6 +3,7 @@ use crate::i2c::{I2CConfig, I2C};
 use crate::internal::{IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::iowarrior_service;
 use crate::pwm::{ChannelMode, PWMConfig, PWM};
+use crate::spi::{SPIConfig, SPI};
 use crate::{IOWarriorType, PeripheralSetupError, SerialNumberError};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
@@ -64,6 +65,19 @@ impl IOWarrior {
         };
 
         PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
+    }
+
+    pub fn setup_spi_with_config(
+        &self,
+        spi_config: SPIConfig,
+    ) -> Result<SPI, PeripheralSetupError> {
+        SPI::new(&self.data, &self.mut_data_refcell, spi_config)
+    }
+
+    pub fn setup_spi(&self) -> Result<SPI, PeripheralSetupError> {
+        let spi_config = SPIConfig {};
+
+        SPI::new(&self.data, &self.mut_data_refcell, spi_config)
     }
 
     pub fn setup_output_as_high(&self, pin: u8) -> Result<OutputPin, PinSetupError> {

@@ -1,32 +1,19 @@
 #![allow(dead_code)]
 
-use anyhow::Result;
-use byteorder::{BigEndian, ByteOrder};
-use embedded_hal::i2c::{I2c, Operation as I2cOperation};
-use embedded_hal::pwm::SetDutyCycle;
+use anyhow::{anyhow, Result};
+use bme280::i2c::BME280;
+use embedded_sensors::bh1750::config::{Config, MeasurementMode};
+use embedded_sensors::bh1750::Bh1750;
+use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::get_iowarriors;
 use std::thread;
 use std::time::Duration;
-use bme280::i2c::BME280;
-use iowarrior_embedded_hal::delay::Delay;
 
 fn main() {
     match bmp280() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
-}
-
-fn pwm() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
-
-    for iowarrior in &mut iowarriors {
-        let mut pwm = iowarrior.setup_pwm()?;
-
-        pwm.set_duty_cycle(pwm.max_duty_cycle() / 2)?;
-    }
-
-    Ok(())
 }
 
 fn pins() -> Result<()> {
@@ -54,22 +41,19 @@ fn bh1750() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c()?;
+        let mut i2c = iowarrior.setup_i2c().unwrap();
+        let mut bh1750 = Bh1750::with_configuration(
+            0x23,
+            &mut i2c,
+            Config::default().measurement_mode(MeasurementMode::ContinuouslyHighResolution2),
+        )
+        .map_err(|_err| anyhow!("Bh1750::with_configuration"))?;
 
-        let mut brightness_buffer = [0u8; 2];
+        bh1750
+            .read(&mut i2c)
+            .map_err(|_err| anyhow!("bh1750.read"))?;
 
-        let mut ops = [
-            I2cOperation::Write(&[0b0000_0001]),
-            I2cOperation::Write(&[0b0001_0001]),
-            I2cOperation::Read(&mut brightness_buffer),
-        ];
-
-        i2c.transaction(0x23, &mut ops)?;
-
-        let raw_brightness = BigEndian::read_u16(&brightness_buffer);
-        let brightness_lux = raw_brightness as f32 / 1.2f32 / 2.0f32;
-
-        println!("{:?} Lux", &brightness_lux);
+        println!("{:?} Lux", bh1750.light_level());
     }
 
     Ok(())
@@ -91,9 +75,13 @@ fn bmp280() -> Result<()> {
 
         let mut bme280 = BME280::new_primary(i2c);
 
-        bme280.init(&mut delay).unwrap();
+        bme280
+            .init(&mut delay)
+            .map_err(|_err| anyhow!("bme280.init"))?;
 
-        let measurements = bme280.measure(&mut delay).unwrap();
+        let measurements = bme280
+            .measure(&mut delay)
+            .map_err(|_err| anyhow!("bme280.measure"))?;
 
         println!("Relative Humidity = {}%", measurements.humidity);
         println!("Temperature = {} deg C", measurements.temperature);

@@ -1,4 +1,3 @@
-use embedded_hal::spi::ErrorKind;
 use thiserror::Error;
 
 #[non_exhaustive]
@@ -8,10 +7,11 @@ pub enum SPIError {
     IOErrorIOWarrior,
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::spi::Error for SPIError {
-    fn kind(&self) -> ErrorKind {
+    fn kind(&self) -> embedded_hal::spi::ErrorKind {
         match self {
-            SPIError::IOErrorIOWarrior => ErrorKind::Other,
+            SPIError::IOErrorIOWarrior => embedded_hal::spi::ErrorKind::Other,
         }
     }
 }

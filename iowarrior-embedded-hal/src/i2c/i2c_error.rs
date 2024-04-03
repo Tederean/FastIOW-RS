@@ -1,4 +1,3 @@
-use embedded_hal::i2c::ErrorKind;
 use thiserror::Error;
 
 #[non_exhaustive]
@@ -14,13 +13,14 @@ pub enum I2CError {
     IOErrorI2CArbitrationLoss,
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::Error for I2CError {
-    fn kind(&self) -> ErrorKind {
+    fn kind(&self) -> embedded_hal::i2c::ErrorKind {
         match self {
-            I2CError::IOErrorIOWarrior => ErrorKind::Other,
-            I2CError::IOErrorI2C => ErrorKind::Bus,
-            I2CError::IOErrorI2CArbitrationLoss => ErrorKind::ArbitrationLoss,
-            I2CError::InvalidI2CAddress => ErrorKind::Other,
+            I2CError::IOErrorIOWarrior => embedded_hal::i2c::ErrorKind::Other,
+            I2CError::IOErrorI2C => embedded_hal::i2c::ErrorKind::Bus,
+            I2CError::IOErrorI2CArbitrationLoss => embedded_hal::i2c::ErrorKind::ArbitrationLoss,
+            I2CError::InvalidI2CAddress => embedded_hal::i2c::ErrorKind::Other,
         }
     }
 }

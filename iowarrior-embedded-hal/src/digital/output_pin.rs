@@ -1,6 +1,8 @@
 use crate::bits::{Bit, Bitmasking};
-use crate::digital::{map_error, PinError, PinSetupError};
-use crate::internal::{disable_gpio, enable_gpio, set_pin_output, IOWarriorData, IOWarriorMutData};
+use crate::digital::{PinError, PinSetupError};
+use crate::internal::{
+    disable_gpio, enable_gpio, set_pin_output, IOWarriorData, IOWarriorMutData, IowkitError,
+};
 use embedded_hal::digital::PinState;
 use std::cell::{RefCell, RefMut};
 use std::fmt;
@@ -13,10 +15,12 @@ pub struct OutputPin {
     pin: u8,
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::ErrorType for OutputPin {
     type Error = PinError;
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::OutputPin for OutputPin {
     fn set_low(&mut self) -> Result<(), Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
@@ -31,6 +35,7 @@ impl embedded_hal::digital::OutputPin for OutputPin {
     }
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::StatefulOutputPin for OutputPin {
     fn is_set_high(&mut self) -> Result<bool, Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
@@ -41,6 +46,42 @@ impl embedded_hal::digital::StatefulOutputPin for OutputPin {
     }
 
     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        let is_set = self.is_set(&mut mut_data, PinState::Low);
+
+        Ok(is_set)
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::digital::v2::OutputPin for OutputPin {
+    type Error = PinError;
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        self.set(&mut mut_data, PinState::Low)
+    }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        self.set(&mut mut_data, PinState::High)
+    }
+}
+
+#[cfg(feature = "embedded-hal-0")]
+impl embedded_hal_0::digital::v2::StatefulOutputPin for OutputPin {
+    fn is_set_high(&self) -> Result<bool, Self::Error> {
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        let is_set = self.is_set(&mut mut_data, PinState::High);
+
+        Ok(is_set)
+    }
+
+    fn is_set_low(&self) -> Result<bool, Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
         let is_set = self.is_set(&mut mut_data, PinState::Low);
@@ -86,7 +127,9 @@ impl OutputPin {
         mut_data: &mut RefMut<IOWarriorMutData>,
         pin_state: PinState,
     ) -> Result<(), PinError> {
-        map_error(set_pin_output(&self.data, mut_data, pin_state, self.pin))
+        set_pin_output(&self.data, mut_data, pin_state, self.pin).map_err(|error| match error {
+            IowkitError::IOErrorIOWarrior => PinError::IOErrorIOWarrior,
+        })
     }
 
     fn is_set(

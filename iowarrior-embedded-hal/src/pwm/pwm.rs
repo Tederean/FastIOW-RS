@@ -1,7 +1,7 @@
 use crate::internal::{
     disable_peripheral, enable_pwm, get_used_pins, IOWarriorData, IOWarriorMutData,
 };
-use crate::pwm::{calculate_pwm_data, ChannelMode, IOWarriorPWMType, PWMConfig, PWMData, PWMError};
+use crate::pwm::{calculate_pwm_data, ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
 use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
@@ -26,20 +26,6 @@ impl Drop for PWM {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
         disable_peripheral(&self.data, &mut mut_data, Peripheral::PWM);
-    }
-}
-
-impl embedded_hal::pwm::ErrorType for PWM {
-    type Error = PWMError;
-}
-
-impl embedded_hal::pwm::SetDutyCycle for PWM {
-    fn max_duty_cycle(&self) -> u16 {
-        self.pwm_data.max_duty_cycle
-    }
-
-    fn set_duty_cycle(&mut self, duty: u16) -> Result<(), Self::Error> {
-        todo!()
     }
 }
 

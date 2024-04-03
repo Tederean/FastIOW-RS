@@ -1,4 +1,3 @@
-use crate::internal::IowkitError;
 use embedded_hal::digital::ErrorKind;
 use thiserror::Error;
 
@@ -9,19 +8,11 @@ pub enum PinError {
     IOErrorIOWarrior,
 }
 
+#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::Error for PinError {
     fn kind(&self) -> ErrorKind {
         match self {
             PinError::IOErrorIOWarrior => ErrorKind::Other,
         }
-    }
-}
-
-pub(crate) fn map_error<T>(result: Result<T, IowkitError>) -> Result<T, PinError> {
-    match result {
-        Ok(t) => Ok(t),
-        Err(error) => match error {
-            IowkitError::IOErrorIOWarrior => Err(PinError::IOErrorIOWarrior),
-        },
     }
 }

@@ -11,3 +11,4 @@ anyhow = "1"
 byteorder = "1.5"
 embedded-hal = "1"
 bme280 = "0.5"
+embedded-sensors = { version = "0.1", default-features = false, features = ["bh1750"] }
