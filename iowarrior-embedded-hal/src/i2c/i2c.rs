@@ -63,11 +63,9 @@ impl I2C {
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         i2c_config: I2CConfig,
     ) -> Result<I2C, PeripheralSetupError> {
-        {
-            let mut mut_data = mut_data_refcell.borrow_mut();
+        let mut mut_data = mut_data_refcell.borrow_mut();
 
-            enable_i2c(&data, &mut mut_data, i2c_config)?;
-        }
+        enable_i2c(&data, &mut mut_data, i2c_config)?;
 
         Ok(I2C {
             data: data.clone(),
@@ -192,13 +190,15 @@ impl I2C {
                     IOWarriorType::IOWarrior28
                     | IOWarriorType::IOWarrior28Dongle
                     | IOWarriorType::IOWarrior56
-                    | IOWarriorType::IOWarrior56Dongle
-                    | IOWarriorType::IOWarrior56Old => {
+                    | IOWarriorType::IOWarrior56Dongle => {
                         if report.buffer[1].get_bit(Bit7) {
                             return Err(I2CError::IOErrorI2CArbitrationLoss);
                         }
                     }
-                    _ => {}
+                    IOWarriorType::IOWarrior40
+                    | IOWarriorType::IOWarrior24
+                    | IOWarriorType::IOWarrior28L
+                    | IOWarriorType::IOWarrior100 => {}
                 }
 
                 Ok(report)

@@ -96,18 +96,14 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Opt
 }
 
 fn get_iowarrior56_subtype(data: &IOWarriorData) -> IOWarriorType {
-    if data.device_revision < 0x2000 {
-        IOWarriorType::IOWarrior56Old
-    } else {
-        let mut report = create_report(&data, Pipe::SpecialMode);
+    let mut report = create_report(&data, Pipe::SpecialMode);
 
-        report.buffer[0] = ReportId::AdcSetup.get_value();
-        report.buffer[1] = 0x00;
+    report.buffer[0] = ReportId::AdcSetup.get_value();
+    report.buffer[1] = 0x00;
 
-        match write_report(&data, &report) {
-            Ok(_) => IOWarriorType::IOWarrior56,
-            Err(_) => IOWarriorType::IOWarrior56Dongle,
-        }
+    match write_report(&data, &report) {
+        Ok(_) => IOWarriorType::IOWarrior56,
+        Err(_) => IOWarriorType::IOWarrior56Dongle,
     }
 }
 
@@ -126,12 +122,10 @@ fn get_iowarrior28_subtype(data: &IOWarriorData) -> IOWarriorType {
 fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
     match device_type {
         IOWarriorType::IOWarrior40 => vec![0 * 8 + 6, 0 * 8 + 7],
-        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24Old => vec![0 * 8 + 1, 0 * 8 + 2],
+        IOWarriorType::IOWarrior24 => vec![0 * 8 + 1, 0 * 8 + 2],
         IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => vec![2 * 8 + 1, 2 * 8 + 0],
         IOWarriorType::IOWarrior28L => vec![0 * 8 + 1, 0 * 8 + 2],
-        IOWarriorType::IOWarrior56
-        | IOWarriorType::IOWarrior56Dongle
-        | IOWarriorType::IOWarrior56Old => vec![1 * 8 + 7, 1 * 8 + 5],
+        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => vec![1 * 8 + 7, 1 * 8 + 5],
         IOWarriorType::IOWarrior100 => vec![10 * 8 + 4, 10 * 8 + 5],
     }
 }
@@ -139,35 +133,35 @@ fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
 fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {
     match device_type {
         IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => Pipe::I2CMode,
-        _ => Pipe::SpecialMode,
+        IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior28L
+        | IOWarriorType::IOWarrior56
+        | IOWarriorType::IOWarrior56Dongle
+        | IOWarriorType::IOWarrior100 => Pipe::SpecialMode,
     }
 }
 
 fn get_standard_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24Old => 3,
+        IOWarriorType::IOWarrior24 => 3,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior28L
         | IOWarriorType::IOWarrior40 => 5,
         IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle
-        | IOWarriorType::IOWarrior56Old
         | IOWarriorType::IOWarrior100 => 8,
     }
 }
 
 fn get_special_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior40
-        | IOWarriorType::IOWarrior24
-        | IOWarriorType::IOWarrior24Old
-        | IOWarriorType::IOWarrior28L => 8,
+        IOWarriorType::IOWarrior40 | IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior28L => 8,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle
-        | IOWarriorType::IOWarrior56Old
         | IOWarriorType::IOWarrior100 => 64,
     }
 }
@@ -175,11 +169,11 @@ fn get_special_report_size(device_type: IOWarriorType) -> usize {
 fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
     match device_type {
         IOWarriorType::IOWarrior40 => |x| x < 32,
-        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24Old => |x| x < 16,
+        IOWarriorType::IOWarrior24 => |x| x < 16,
         IOWarriorType::IOWarrior28 => |x| x < 18 || x == 31,
         IOWarriorType::IOWarrior28Dongle | IOWarriorType::IOWarrior56Dongle => |x| false,
         IOWarriorType::IOWarrior28L => |x| x < 18,
-        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Old => |x| x < 48,
+        IOWarriorType::IOWarrior56 => |x| x < 48,
         IOWarriorType::IOWarrior100 => {
             |x| x < 11 || (x > 15 && x < 84) || x == 86 || x == 89 || x == 90
         }

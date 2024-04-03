@@ -2,11 +2,12 @@ use crate::digital::{InputPin, OutputPin, PinSetupError};
 use crate::i2c::{I2CConfig, I2C};
 use crate::internal::{IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::iowarrior_service;
+use crate::pwm::{ChannelMode, PWMConfig, PWM};
 use crate::{IOWarriorType, PeripheralSetupError, SerialNumberError};
+use embedded_hal::digital::PinState;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
-use embedded_hal::digital::PinState;
 
 #[derive(Debug)]
 pub struct IOWarrior {
@@ -47,6 +48,22 @@ impl IOWarrior {
         };
 
         I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
+    }
+
+    pub fn setup_pwm_with_config(
+        &self,
+        pwm_config: PWMConfig,
+    ) -> Result<PWM, PeripheralSetupError> {
+        PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
+    }
+
+    pub fn setup_pwm(&self) -> Result<PWM, PeripheralSetupError> {
+        let pwm_config = PWMConfig {
+            channel_mode: ChannelMode::default(),
+            requested_frequency_hz: 1000,
+        };
+
+        PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
     }
 
     pub fn setup_output_as_high(&self, pin: u8) -> Result<OutputPin, PinSetupError> {

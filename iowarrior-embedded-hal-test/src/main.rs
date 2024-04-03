@@ -3,16 +3,28 @@
 use anyhow::Result;
 use byteorder::{BigEndian, ByteOrder};
 use embedded_hal::i2c::{I2c, Operation as I2cOperation};
+use embedded_hal::pwm::SetDutyCycle;
 use iowarrior_embedded_hal::get_iowarriors;
 use std::thread;
 use std::time::Duration;
-use embedded_hal::digital::OutputPin;
 
 fn main() {
-    match pins() {
+    match pwm() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+fn pwm() -> Result<()> {
+    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+
+    for iowarrior in &mut iowarriors {
+        let mut pwm = iowarrior.setup_pwm()?;
+
+        pwm.set_duty_cycle(pwm.max_duty_cycle() / 2)?;
+    }
+
+    Ok(())
 }
 
 fn pins() -> Result<()> {

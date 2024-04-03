@@ -8,6 +8,7 @@ pub enum ReportId {
     I2cWrite = 0x02,
     I2cRead = 0x03,
     PwmSetup = 0x20,
+    PwmParameters = 0x21,
     SpiSetup = 0x08,
     SpiTransfer = 0x09,
     TimerSetup = 0x28,
