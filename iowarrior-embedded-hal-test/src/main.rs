@@ -8,12 +8,50 @@ use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::get_iowarriors;
 use std::thread;
 use std::time::Duration;
+use ssd1306::{I2CDisplayInterface, Ssd1306};
+use ssd1306::prelude::*;
+use embedded_graphics::{
+    image::{Image, ImageRaw},
+    pixelcolor::BinaryColor,
+    prelude::*,
+};
 
 fn main() {
-    match bmp280() {
+    match ssd1306() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+fn ssd1306() -> Result<()> {
+    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+        );
+
+        let i2c = iowarrior.setup_i2c().unwrap();
+        let interface = I2CDisplayInterface::new(i2c);
+
+        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0).into_buffered_graphics_mode();
+
+        display.init().map_err(|_err| anyhow!("display.init"))?;
+
+
+        let raw: ImageRaw<BinaryColor> = ImageRaw::new(include_bytes!("./rust.raw"), 64);
+
+        let image = Image::new(&raw, Point::new(32, 0));
+
+        image.draw(&mut display).map_err(|_err| anyhow!("image.draw"))?;
+
+        display.flush().map_err(|_err| anyhow!("display.flush"))?;
+    }
+
+    Ok(())
 }
 
 fn pins() -> Result<()> {
@@ -41,7 +79,7 @@ fn bh1750() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let mut i2c = iowarrior.setup_i2c().unwrap();
+        let mut i2c = iowarrior.setup_i2c()?;
         let mut bh1750 = Bh1750::with_configuration(
             0x23,
             &mut i2c,

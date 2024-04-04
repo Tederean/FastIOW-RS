@@ -12,3 +12,6 @@ byteorder = "1.5"
 embedded-hal = "1"
 bme280 = "0.5"
 embedded-sensors = { version = "0.1", default-features = false, features = ["bh1750"] }
+ssd1306 = "0.8"
+image = "0.25"
+embedded-graphics = "0.8"
