@@ -1,14 +1,16 @@
 use crate::bits::Bit;
+use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit7};
 use crate::bits::Bitmasking;
 use crate::digital::PinSetupError;
 use crate::i2c::I2CConfig;
 use crate::internal::{
     IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
 };
-use crate::pwm::{IOWarriorPWMType, PWMData};
-use crate::spi::SPIConfig;
+use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMData};
+use crate::spi::{IOWarriorSPIType, SPIData};
 use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use embedded_hal::digital::PinState;
+use embedded_hal::spi::{Phase, Polarity};
 use std::cell::RefMut;
 
 static_assertions::assert_eq_size!(*mut u8, iowkit_sys::PCHAR);
@@ -98,15 +100,14 @@ pub fn get_used_pins(
 pub fn enable_spi(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    spi_config: SPIConfig,
+    spi_data: &SPIData,
+    spi_pins: &Vec<u8>,
 ) -> Result<(), PeripheralSetupError> {
-    todo!()
+    precheck_peripheral(&data, mut_data, Peripheral::SPI, &spi_pins)?;
 
-    //precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
+    let result = send_enable_spi(&data, &spi_data);
 
-    //let result = send_enable_pwm(&data, pwm_data);
-
-    //post_enable(mut_data, pwm_pins, Peripheral::PWM, result)
+    post_enable(mut_data, &spi_pins, Peripheral::SPI, result)
 }
 
 pub fn enable_pwm(
@@ -129,7 +130,7 @@ pub fn enable_i2c(
 ) -> Result<(), PeripheralSetupError> {
     precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
 
-    let result = send_enable_i2c(&data, i2c_config);
+    let result = send_enable_i2c(&data, &i2c_config);
 
     post_enable(mut_data, &data.i2c_pins, Peripheral::I2C, result)
 }
@@ -300,7 +301,7 @@ pub fn set_pin_output(
     pin: u8,
 ) -> Result<(), IowkitError> {
     let byte_index = ((pin as usize) / 8usize) + 1;
-    let bit_index = Bit::from(pin % 8u8);
+    let bit_index = Bit::from_u8(pin % 8u8);
 
     let mut pins_write_report = mut_data.pins_write_report.clone();
 
@@ -315,7 +316,69 @@ pub fn set_pin_output(
     }
 }
 
-fn send_enable_i2c(data: &IOWarriorData, i2c_config: I2CConfig) -> Result<(), IowkitError> {
+fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), IowkitError> {
+    let mut report = create_report(&data, data.i2c_pipe);
+
+    report.buffer[0] = ReportId::SpiSetup.get_value();
+    report.buffer[1] = 0x01;
+
+    match spi_data.spi_type {
+        IOWarriorSPIType::IOWarrior24 => {
+            report.buffer[2] = {
+                let mut mode = spi_data.iow24_mode;
+
+                mode.set_bit(
+                    Bit2,
+                    match spi_data.spi_config.phase {
+                        Phase::CaptureOnFirstTransition => true,
+                        Phase::CaptureOnSecondTransition => false,
+                    },
+                );
+
+                mode.set_bit(
+                    Bit3,
+                    match spi_data.spi_config.polarity {
+                        Polarity::IdleLow => false,
+                        Polarity::IdleHigh => true,
+                    },
+                );
+
+                mode
+            };
+        }
+        IOWarriorSPIType::IOWarrior56 => {
+            report.buffer[2] = {
+                let mut mode = spi_data.iow24_mode;
+
+                mode.set_bit(
+                    Bit1,
+                    match spi_data.spi_config.polarity {
+                        Polarity::IdleLow => false,
+                        Polarity::IdleHigh => true,
+                    },
+                );
+
+                mode.set_bit(
+                    Bit2,
+                    match spi_data.spi_config.phase {
+                        Phase::CaptureOnFirstTransition => false,
+                        Phase::CaptureOnSecondTransition => true,
+                    },
+                );
+
+                mode.set_bit(Bit7, false); // MSB first
+
+                mode
+            };
+
+            report.buffer[3] = spi_data.iow56_clock_divider;
+        }
+    }
+
+    write_report(&data, &mut report)
+}
+
+fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), IowkitError> {
     let mut report = create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
@@ -347,7 +410,7 @@ fn send_disable_i2c(data: &IOWarriorData) -> Result<(), IowkitError> {
     write_report(&data, &mut report)
 }
 
-fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), IowkitError> {
+pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), IowkitError> {
     {
         let mut report = create_report(&data, Pipe::SpecialMode);
 
@@ -355,7 +418,8 @@ fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), Iowki
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
 
         if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior56 {
-            // TODO
+            write_iow56_pwm_channel(&mut report.buffer[2..7], &pwm_data, ChannelMode::Single);
+            write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
         }
 
         write_report(&data, &mut report)?;
@@ -367,12 +431,48 @@ fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), Iowki
         report.buffer[0] = ReportId::PwmParameters.get_value();
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
 
-        // TODO
+        write_u16(&mut report.buffer[2..4], pwm_data.iow100_prescaler);
+        write_u16(&mut report.buffer[4..6], pwm_data.iow100_cycle);
+
+        write_iow100_pwm_channel(&mut report.buffer[6..8], &pwm_data, ChannelMode::Single);
+        write_iow100_pwm_channel(&mut report.buffer[8..10], &pwm_data, ChannelMode::Dual);
+        write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
+        write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
 
         write_report(&data, &mut report)?;
     }
 
     Ok(())
+}
+
+fn write_iow100_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
+    let iow100_ch_register = match channel {
+        ChannelMode::Single => pwm_data.duty_cycle_0,
+        ChannelMode::Dual => pwm_data.duty_cycle_1,
+        ChannelMode::Triple => pwm_data.duty_cycle_2,
+        ChannelMode::Quad => pwm_data.duty_cycle_3,
+    };
+
+    write_u16(&mut bytes[0..2], iow100_ch_register);
+}
+
+fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
+    let iow56_pls_register = match channel {
+        ChannelMode::Single => pwm_data.duty_cycle_0,
+        ChannelMode::Dual => pwm_data.duty_cycle_1,
+        ChannelMode::Triple => pwm_data.duty_cycle_2,
+        ChannelMode::Quad => pwm_data.duty_cycle_3,
+    };
+
+    write_u16(&mut bytes[0..2], pwm_data.iow56_per);
+    write_u16(&mut bytes[2..4], iow56_pls_register);
+    bytes[4] = pwm_data.iow56_clock_source;
+}
+
+#[inline]
+fn write_u16(bytes: &mut [u8], value: u16) {
+    bytes[0] = (value & 0xFF) as u8; // LSB
+    bytes[1] = (value >> 8) as u8; // MSB
 }
 
 fn send_disable_pwm(data: &IOWarriorData) -> Result<(), IowkitError> {
@@ -385,5 +485,10 @@ fn send_disable_pwm(data: &IOWarriorData) -> Result<(), IowkitError> {
 }
 
 fn send_disable_spi(data: &IOWarriorData) -> Result<(), IowkitError> {
-    todo!()
+    let mut report = create_report(&data, Pipe::SpecialMode);
+
+    report.buffer[0] = ReportId::SpiSetup.get_value();
+    report.buffer[1] = 0x00;
+
+    write_report(&data, &mut report)
 }

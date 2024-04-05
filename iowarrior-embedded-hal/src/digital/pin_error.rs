@@ -8,7 +8,6 @@ pub enum PinError {
     IOErrorIOWarrior,
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::Error for PinError {
     fn kind(&self) -> ErrorKind {
         match self {

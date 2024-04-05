@@ -7,8 +7,14 @@ pub struct PWMData {
     pub pwm_config: PWMConfig,
     pub max_duty_cycle: u16,
     pub calculated_frequency_hz: u32,
-    pub iow56_clock_register: u8,
-    pub iow56_per_register: u16,
+    pub iow56_clock_source: u8,
+    pub iow56_per: u16,
+    pub iow100_prescaler: u16,
+    pub iow100_cycle: u16,
+    pub duty_cycle_0: u16,
+    pub duty_cycle_1: u16,
+    pub duty_cycle_2: u16,
+    pub duty_cycle_3: u16,
 }
 
 impl fmt::Display for PWMData {
@@ -29,34 +35,34 @@ impl fmt::Display for IOWarriorPWMType {
     }
 }
 
-pub fn calculate_pwm_data(
-    pwm_type: IOWarriorPWMType,
-    pwm_config: PWMConfig,
-    pwm_pins: &Vec<u8>,
-) -> PWMData {
-    match pwm_type {
-        IOWarriorPWMType::IOWarrior56 => calculate_iow56_data(pwm_type, pwm_config, pwm_pins),
-        IOWarriorPWMType::IOWarrior100 => calculate_iow100_data(pwm_type, pwm_config, pwm_pins),
-    }
-}
-
-fn calculate_iow56_data(
-    pwm_type: IOWarriorPWMType,
-    pwm_config: PWMConfig,
-    pwm_pins: &Vec<u8>,
-) -> PWMData {
-    let requested_frequency_hz = std::cmp::max(1, pwm_config.requested_frequency_hz);
-
-    let possible_clock_values = [1_000u32, 250_000u32, 2_000_000u32, 48_000_000u32];
-
+pub fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
     let mut data = PWMData {
         pwm_type,
         pwm_config,
-        iow56_per_register: 0,
-        iow56_clock_register: 0,
+        iow56_per: 0,
+        iow56_clock_source: 0,
+        iow100_prescaler: 0,
+        iow100_cycle: 0,
         max_duty_cycle: 0,
         calculated_frequency_hz: u32::MAX,
+        duty_cycle_0: 0,
+        duty_cycle_1: 0,
+        duty_cycle_2: 0,
+        duty_cycle_3: 0,
     };
+
+    match pwm_type {
+        IOWarriorPWMType::IOWarrior56 => calculate_iow56_data(&mut data),
+        IOWarriorPWMType::IOWarrior100 => calculate_iow100_data(&mut data),
+    }
+
+    data
+}
+
+fn calculate_iow56_data(pwm_data: &mut PWMData) {
+    let requested_frequency_hz = std::cmp::max(1, pwm_data.pwm_config.requested_frequency_hz);
+
+    let possible_clock_values = [1_000u32, 250_000u32, 2_000_000u32, 48_000_000u32];
 
     for (index, clock_hz) in possible_clock_values.iter().enumerate().rev() {
         let per = {
@@ -75,22 +81,28 @@ fn calculate_iow56_data(
 
         if calculated_frequency_hz > 0u32
             && requested_frequency_hz.abs_diff(calculated_frequency_hz)
-                < requested_frequency_hz.abs_diff(data.calculated_frequency_hz)
+                < requested_frequency_hz.abs_diff(pwm_data.calculated_frequency_hz)
         {
-            data.iow56_clock_register = index as u8;
-            data.iow56_per_register = per as u16;
-            data.max_duty_cycle = per as u16;
-            data.calculated_frequency_hz = calculated_frequency_hz;
+            pwm_data.iow56_clock_source = index as u8;
+            pwm_data.iow56_per = per as u16;
+            pwm_data.max_duty_cycle = per as u16;
+            pwm_data.calculated_frequency_hz = calculated_frequency_hz;
         }
     }
-
-    data
 }
 
-fn calculate_iow100_data(
-    pwm_type: IOWarriorPWMType,
-    pwm_config: PWMConfig,
-    pwm_pins: &Vec<u8>,
-) -> PWMData {
-    todo!()
+fn calculate_iow100_data(pwm_data: &mut PWMData) {
+    let requested_frequency_hz = std::cmp::max(1, pwm_data.pwm_config.requested_frequency_hz);
+    let requested_period_s = 1.0f64 / requested_frequency_hz as f64;
+    let max_duty_cycle = u16::pow(2, 10) - 1;
+
+    let prescaler_f = ((48000000f64 * requested_period_s) / max_duty_cycle as f64) - 1f64;
+    let prescaler = prescaler_f.round() as u32;
+
+    let calculated_frequency = 48000000u32 / (max_duty_cycle as u32 * (prescaler + 1u32));
+
+    pwm_data.calculated_frequency_hz = calculated_frequency;
+    pwm_data.iow100_prescaler = prescaler as u16;
+    pwm_data.max_duty_cycle = max_duty_cycle;
+    pwm_data.iow100_cycle = max_duty_cycle;
 }

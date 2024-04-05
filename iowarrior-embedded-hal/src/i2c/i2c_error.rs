@@ -13,7 +13,6 @@ pub enum I2CError {
     IOErrorI2CArbitrationLoss,
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::Error for I2CError {
     fn kind(&self) -> embedded_hal::i2c::ErrorKind {
         match self {

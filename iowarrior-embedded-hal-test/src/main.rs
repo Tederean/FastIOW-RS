@@ -2,22 +2,23 @@
 
 use anyhow::{anyhow, Result};
 use bme280::i2c::BME280;
-use embedded_sensors::bh1750::config::{Config, MeasurementMode};
-use embedded_sensors::bh1750::Bh1750;
-use iowarrior_embedded_hal::delay::Delay;
-use iowarrior_embedded_hal::get_iowarriors;
-use std::thread;
-use std::time::Duration;
-use ssd1306::{I2CDisplayInterface, Ssd1306};
-use ssd1306::prelude::*;
 use embedded_graphics::{
     image::{Image, ImageRaw},
     pixelcolor::BinaryColor,
     prelude::*,
 };
+use embedded_sensors::bh1750::config::{Config, MeasurementMode};
+use embedded_sensors::bh1750::Bh1750;
+use iowarrior_embedded_hal::delay::Delay;
+use iowarrior_embedded_hal::get_iowarriors;
+use iowarrior_embedded_hal::pwm::PWMConfig;
+use ssd1306::prelude::*;
+use ssd1306::{I2CDisplayInterface, Ssd1306};
+use std::thread;
+use std::time::Duration;
 
 fn main() {
-    match ssd1306() {
+    match pwm() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
@@ -37,18 +38,33 @@ fn ssd1306() -> Result<()> {
         let i2c = iowarrior.setup_i2c().unwrap();
         let interface = I2CDisplayInterface::new(i2c);
 
-        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0).into_buffered_graphics_mode();
+        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+            .into_buffered_graphics_mode();
 
         display.init().map_err(|_err| anyhow!("display.init"))?;
-
 
         let raw: ImageRaw<BinaryColor> = ImageRaw::new(include_bytes!("./rust.raw"), 64);
 
         let image = Image::new(&raw, Point::new(32, 0));
 
-        image.draw(&mut display).map_err(|_err| anyhow!("image.draw"))?;
+        image
+            .draw(&mut display)
+            .map_err(|_err| anyhow!("image.draw"))?;
 
         display.flush().map_err(|_err| anyhow!("display.flush"))?;
+    }
+
+    Ok(())
+}
+
+fn pwm() -> Result<()> {
+    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+
+    for iowarrior in &mut iowarriors {
+        let pwm = iowarrior.setup_pwm_with_config(PWMConfig {
+            channel_mode: Default::default(),
+            requested_frequency_hz: 1000,
+        })?;
     }
 
     Ok(())

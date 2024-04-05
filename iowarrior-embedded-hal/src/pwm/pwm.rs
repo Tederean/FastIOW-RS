@@ -48,7 +48,7 @@ impl PWM {
                 }
 
                 let pwm_pins = get_pwm_pins(pwm_type, pwm_config.channel_mode);
-                let pwm_data = calculate_pwm_data(pwm_type, pwm_config, &pwm_pins);
+                let pwm_data = calculate_pwm_data(pwm_type, pwm_config);
 
                 enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
 

@@ -20,7 +20,7 @@ impl fmt::Display for Bit {
 
 impl Bit {
     #[inline]
-    pub fn from(bit_index: u8) -> Bit {
+    pub fn from_u8(bit_index: u8) -> Bit {
         match bit_index {
             0 => Bit::Bit0,
             1 => Bit::Bit1,

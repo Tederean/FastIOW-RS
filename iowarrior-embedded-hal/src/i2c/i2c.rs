@@ -30,12 +30,10 @@ impl Drop for I2C {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::ErrorType for I2C {
     type Error = I2CError;
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
     fn transaction(
         &mut self,
@@ -202,14 +200,9 @@ impl I2C {
     }
 
     fn write_report(&self, report: &Report) -> Result<(), I2CError> {
-        match write_report(&self.data, &report) {
-            Ok(_) => Ok(()),
-            Err(error) => {
-                return match error {
-                    IowkitError::IOErrorIOWarrior => Err(I2CError::IOErrorIOWarrior),
-                }
-            }
-        }
+        write_report(&self.data, &report).map_err(|error| match error {
+            IowkitError::IOErrorIOWarrior => I2CError::IOErrorIOWarrior,
+        })
     }
 
     fn read_report(&self, pipe: Pipe, report_id: ReportId) -> Result<Report, I2CError> {

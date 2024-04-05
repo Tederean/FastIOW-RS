@@ -8,7 +8,6 @@ pub enum PWMError {
     IOErrorIOWarrior,
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::pwm::Error for PWMError {
     fn kind(&self) -> ErrorKind {
         match self {

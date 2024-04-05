@@ -15,12 +15,10 @@ pub struct OutputPin {
     pin: u8,
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::ErrorType for OutputPin {
     type Error = PinError;
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::OutputPin for OutputPin {
     fn set_low(&mut self) -> Result<(), Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
@@ -35,7 +33,6 @@ impl embedded_hal::digital::OutputPin for OutputPin {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::digital::StatefulOutputPin for OutputPin {
     fn is_set_high(&mut self) -> Result<bool, Self::Error> {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
@@ -138,7 +135,7 @@ impl OutputPin {
         expected_pin_state: PinState,
     ) -> bool {
         let byte_index = ((self.pin as usize) / 8usize) + 1;
-        let bit_index = Bit::from(self.pin % 8u8);
+        let bit_index = Bit::from_u8(self.pin % 8u8);
 
         let value = mut_data.pins_write_report.buffer[byte_index].get_bit(bit_index);
 

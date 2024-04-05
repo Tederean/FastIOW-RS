@@ -10,7 +10,6 @@ impl fmt::Display for Delay {
     }
 }
 
-#[cfg(feature = "embedded-hal")]
 impl embedded_hal::delay::DelayNs for Delay {
     #[inline]
     fn delay_ns(&mut self, ns: u32) {

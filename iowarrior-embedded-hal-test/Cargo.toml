@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-iowarrior-embedded-hal = { path = "../iowarrior-embedded-hal" }
+iowarrior-embedded-hal = { path = "../iowarrior-embedded-hal", features = ["embedded-hal-0"] }
 anyhow = "1"
 byteorder = "1.5"
 embedded-hal = "1"

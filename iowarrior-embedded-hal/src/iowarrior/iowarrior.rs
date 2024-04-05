@@ -75,7 +75,13 @@ impl IOWarrior {
     }
 
     pub fn setup_spi(&self) -> Result<SPI, PeripheralSetupError> {
-        let spi_config = SPIConfig {};
+        let spi_config = SPIConfig {
+            polarity: embedded_hal::spi::Polarity::IdleLow,
+            phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
+            use_data_ready_pin: false,
+            requested_frequency_hz: 1_000_000,
+            dummy_value: 0x00,
+        };
 
         SPI::new(&self.data, &self.mut_data_refcell, spi_config)
     }
