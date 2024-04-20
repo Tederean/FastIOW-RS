@@ -1,7 +1,7 @@
 use crate::internal::{
     disable_peripheral, enable_pwm, get_used_pins, IOWarriorData, IOWarriorMutData,
 };
-use crate::pwm::{calculate_pwm_data, ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
+use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
 use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
@@ -48,7 +48,7 @@ impl PWM {
                 }
 
                 let pwm_pins = get_pwm_pins(pwm_type, pwm_config.channel_mode);
-                let pwm_data = calculate_pwm_data(pwm_type, pwm_config);
+                let pwm_data = PWMData::new(pwm_type, pwm_config);
 
                 enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
 

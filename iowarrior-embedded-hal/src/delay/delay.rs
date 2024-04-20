@@ -2,7 +2,7 @@ use std::time::Duration;
 use std::{fmt, thread};
 
 #[derive(Debug, Default)]
-pub struct Delay {}
+pub struct Delay;
 
 impl fmt::Display for Delay {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

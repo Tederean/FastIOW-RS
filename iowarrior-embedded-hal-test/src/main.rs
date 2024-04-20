@@ -7,21 +7,74 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
 };
+use embedded_sdmmc::sdcard::DummyCsPin;
+use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::get_iowarriors;
-use iowarrior_embedded_hal::pwm::PWMConfig;
 use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::Duration;
 
 fn main() {
-    match pwm() {
+    match sdcard() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+struct TimeKeeping;
+
+impl TimeSource for TimeKeeping {
+    fn get_timestamp(&self) -> Timestamp {
+        Timestamp {
+            year_since_1970: 0,
+            zero_indexed_month: 0,
+            zero_indexed_day: 0,
+            hours: 0,
+            minutes: 0,
+            seconds: 0,
+        }
+    }
+}
+
+fn sdcard() -> Result<()> {
+    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+        );
+
+        let spi = iowarrior.setup_spi()?;
+        let delay = iowarrior_embedded_hal::delay::Delay;
+        let cs = DummyCsPin;
+
+        let sdcard = SdCard::new(spi, cs, delay);
+
+        println!("Card size is {} bytes", sdcard.num_bytes()?);
+        let mut volume_mgr = VolumeManager::new(sdcard, TimeKeeping);
+        let mut volume0 = volume_mgr.open_volume(VolumeIdx(0))?;
+
+        let mut root_dir = volume0.open_root_dir()?;
+        let mut my_file = root_dir.open_file_in_dir("MY_FILE.TXT", Mode::ReadOnly)?;
+
+        while !my_file.is_eof() {
+            let mut buffer = [0u8; 32];
+            let num_read = my_file.read(&mut buffer)?;
+            for b in &buffer[0..num_read] {
+                print!("{}", *b as char);
+            }
+        }
+        Ok(())
+    }
+
+    Ok(())
 }
 
 fn ssd1306() -> Result<()> {
@@ -35,7 +88,7 @@ fn ssd1306() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let i2c = iowarrior.setup_i2c().unwrap();
+        let i2c = iowarrior.setup_i2c()?;
         let interface = I2CDisplayInterface::new(i2c);
 
         let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
@@ -61,10 +114,7 @@ fn pwm() -> Result<()> {
     let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
 
     for iowarrior in &mut iowarriors {
-        let pwm = iowarrior.setup_pwm_with_config(PWMConfig {
-            channel_mode: Default::default(),
-            requested_frequency_hz: 1000,
-        })?;
+        let _pwm = iowarrior.setup_pwm()?;
     }
 
     Ok(())

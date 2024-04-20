@@ -35,28 +35,30 @@ impl fmt::Display for IOWarriorPWMType {
     }
 }
 
-pub fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
-    let mut data = PWMData {
-        pwm_type,
-        pwm_config,
-        iow56_per: 0,
-        iow56_clock_source: 0,
-        iow100_prescaler: 0,
-        iow100_cycle: 0,
-        max_duty_cycle: 0,
-        calculated_frequency_hz: u32::MAX,
-        duty_cycle_0: 0,
-        duty_cycle_1: 0,
-        duty_cycle_2: 0,
-        duty_cycle_3: 0,
-    };
+impl PWMData {
+    pub fn new(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
+        let mut data = PWMData {
+            pwm_type,
+            pwm_config,
+            iow56_per: 0,
+            iow56_clock_source: 0,
+            iow100_prescaler: 0,
+            iow100_cycle: 0,
+            max_duty_cycle: 0,
+            calculated_frequency_hz: u32::MAX,
+            duty_cycle_0: 0,
+            duty_cycle_1: 0,
+            duty_cycle_2: 0,
+            duty_cycle_3: 0,
+        };
 
-    match pwm_type {
-        IOWarriorPWMType::IOWarrior56 => calculate_iow56_data(&mut data),
-        IOWarriorPWMType::IOWarrior100 => calculate_iow100_data(&mut data),
+        match pwm_type {
+            IOWarriorPWMType::IOWarrior56 => calculate_iow56_data(&mut data),
+            IOWarriorPWMType::IOWarrior100 => calculate_iow100_data(&mut data),
+        }
+
+        data
     }
-
-    data
 }
 
 fn calculate_iow56_data(pwm_data: &mut PWMData) {

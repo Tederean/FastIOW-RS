@@ -79,7 +79,7 @@ impl IOWarrior {
             polarity: embedded_hal::spi::Polarity::IdleLow,
             phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
             use_data_ready_pin: false,
-            requested_frequency_hz: 1_000_000,
+            requested_frequency_hz: 4_000_000,
             dummy_value: 0x00,
         };
 

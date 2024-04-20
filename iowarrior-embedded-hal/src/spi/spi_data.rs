@@ -1,6 +1,18 @@
 use crate::spi::SPIConfig;
 use std::fmt;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum IOWarriorSPIType {
+    IOWarrior24,
+    IOWarrior56,
+}
+
+impl fmt::Display for IOWarriorSPIType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SPIData {
     pub spi_type: IOWarriorSPIType,
@@ -16,33 +28,23 @@ impl fmt::Display for SPIData {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub enum IOWarriorSPIType {
-    IOWarrior24,
-    IOWarrior56,
-}
+impl SPIData {
+    pub fn new(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
+        let mut data = SPIData {
+            spi_type,
+            spi_config,
+            calculated_frequency_hz: u32::MAX,
+            iow24_mode: 0,
+            iow56_clock_divider: 0,
+        };
 
-impl fmt::Display for IOWarriorSPIType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+        match spi_type {
+            IOWarriorSPIType::IOWarrior24 => calculate_iow24_data(&mut data),
+            IOWarriorSPIType::IOWarrior56 => calculate_iow56_data(&mut data),
+        }
+
+        data
     }
-}
-
-pub fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
-    let mut data = SPIData {
-        spi_type,
-        spi_config,
-        calculated_frequency_hz: u32::MAX,
-        iow24_mode: 0,
-        iow56_clock_divider: 0,
-    };
-
-    match spi_type {
-        IOWarriorSPIType::IOWarrior24 => calculate_iow24_data(&mut data),
-        IOWarriorSPIType::IOWarrior56 => calculate_iow56_data(&mut data),
-    }
-
-    data
 }
 
 fn calculate_iow24_data(spi_data: &mut SPIData) {
