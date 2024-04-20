@@ -13,7 +13,7 @@ use embedded_hal::digital::PinState;
 use embedded_hal::spi::{Phase, Polarity};
 use std::cell::RefMut;
 
-static_assertions::assert_eq_size!(*mut u8, iowkit_sys::PCHAR);
+static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
 
 pub fn create_report(data: &IOWarriorData, pipe: Pipe) -> Report {
     Report {

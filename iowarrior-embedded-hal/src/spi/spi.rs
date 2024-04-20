@@ -9,6 +9,7 @@ use crate::{Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
+use std::time::Duration;
 
 #[derive(Debug)]
 pub struct SPI {
@@ -113,6 +114,56 @@ impl embedded_hal_0::blocking::spi::Transactional<u8> for SPI {
         }
 
         Ok(())
+    }
+}
+
+impl embedded_hal::spi::SpiDevice for SPI {
+    #[inline]
+    fn transaction(
+        &mut self,
+        operations: &mut [embedded_hal::spi::Operation<'_, u8>],
+    ) -> Result<(), Self::Error> {
+        for operation in operations {
+            match operation {
+                embedded_hal::spi::Operation::Read(read) => {
+                    read_data(&self.data, &self.spi_data, read)?;
+                }
+                embedded_hal::spi::Operation::Write(write) => {
+                    write_data(&self.data, &self.spi_data, write)?;
+                }
+                embedded_hal::spi::Operation::Transfer(read, write) => {
+                    transfer_data(&self.data, &self.spi_data, read, write)?;
+                }
+                embedded_hal::spi::Operation::TransferInPlace(buf) => {
+                    transfer_data_in_place(&self.data, &self.spi_data, buf)?;
+                }
+                embedded_hal::spi::Operation::DelayNs(delay_ns) => {
+                    std::thread::sleep(Duration::from_nanos(delay_ns.clone() as u64));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    #[inline]
+    fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        read_data(&self.data, &self.spi_data, buf)
+    }
+
+    #[inline]
+    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
+        write_data(&self.data, &self.spi_data, buf)
+    }
+
+    #[inline]
+    fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
+        transfer_data(&self.data, &self.spi_data, read, write)
+    }
+
+    #[inline]
+    fn transfer_in_place(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
+        transfer_data_in_place(&self.data, &self.spi_data, buf)
     }
 }
 

@@ -57,21 +57,33 @@ fn sdcard() -> Result<()> {
 
         let sdcard = SdCard::new(spi, cs, delay);
 
-        println!("Card size is {} bytes", sdcard.num_bytes()?);
+        println!(
+            "Card size is {} bytes",
+            sdcard
+                .num_bytes()
+                .map_err(|_err| anyhow!("sdcard.num_bytes"))?
+        );
         let mut volume_mgr = VolumeManager::new(sdcard, TimeKeeping);
-        let mut volume0 = volume_mgr.open_volume(VolumeIdx(0))?;
+        let mut volume0 = volume_mgr
+            .open_volume(VolumeIdx(0))
+            .map_err(|_err| anyhow!("volume_mgr.open_volume"))?;
 
-        let mut root_dir = volume0.open_root_dir()?;
-        let mut my_file = root_dir.open_file_in_dir("MY_FILE.TXT", Mode::ReadOnly)?;
+        let mut root_dir = volume0
+            .open_root_dir()
+            .map_err(|_err| anyhow!("volume0.open_root_dir"))?;
+        let mut my_file = root_dir
+            .open_file_in_dir("MY_FILE.TXT", Mode::ReadOnly)
+            .map_err(|_err| anyhow!("root_dir.open_file_in_dir"))?;
 
         while !my_file.is_eof() {
             let mut buffer = [0u8; 32];
-            let num_read = my_file.read(&mut buffer)?;
+            let num_read = my_file
+                .read(&mut buffer)
+                .map_err(|_err| anyhow!("my_file.read"))?;
             for b in &buffer[0..num_read] {
                 print!("{}", *b as char);
             }
         }
-        Ok(())
     }
 
     Ok(())
