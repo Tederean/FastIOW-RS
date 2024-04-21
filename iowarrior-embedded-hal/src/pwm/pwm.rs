@@ -2,7 +2,7 @@ use crate::internal::{
     disable_peripheral, enable_pwm, get_used_pins, IOWarriorData, IOWarriorMutData,
 };
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
-use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
+use crate::{IOWarriorType, Peripheral, PeripheralSetupError, pin};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -95,10 +95,10 @@ fn get_pwm_type(data: &Rc<IOWarriorData>, channel_mode: ChannelMode) -> Option<I
 fn get_pwm_pins(pwm_type: IOWarriorPWMType, channel_mode: ChannelMode) -> Vec<u8> {
     let available_pwm_pins: Vec<u8> = match pwm_type {
         IOWarriorPWMType::IOWarrior56 => {
-            vec![6 * 8 + 7, 6 * 8 + 0]
+            vec![pin!(6, 7), pin!(6, 0)]
         }
         IOWarriorPWMType::IOWarrior100 => {
-            vec![8 * 8 + 3, 8 * 8 + 4, 8 * 8 + 5, 8 * 8 + 6]
+            vec![pin!(8, 3), pin!(8, 4), pin!(8, 5), pin!(8, 6)]
         }
     };
 

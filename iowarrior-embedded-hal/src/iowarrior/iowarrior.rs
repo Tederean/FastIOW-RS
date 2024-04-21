@@ -2,7 +2,7 @@ use crate::digital::{InputPin, OutputPin, PinSetupError};
 use crate::i2c::{I2CConfig, I2C};
 use crate::internal::{IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::iowarrior_service;
-use crate::pwm::{ChannelMode, PWMConfig, PWM};
+use crate::pwm::{PWMConfig, PWM};
 use crate::spi::{SPIConfig, SPI};
 use crate::{IOWarriorType, PeripheralSetupError, SerialNumberError};
 use embedded_hal::digital::PinState;
@@ -43,10 +43,7 @@ impl IOWarrior {
     }
 
     pub fn setup_i2c(&self) -> Result<I2C, PeripheralSetupError> {
-        let i2c_config = I2CConfig {
-            iow56_clock: Default::default(),
-            iow100_speed: Default::default(),
-        };
+        let i2c_config = I2CConfig::default();
 
         I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
     }
@@ -59,10 +56,7 @@ impl IOWarrior {
     }
 
     pub fn setup_pwm(&self) -> Result<PWM, PeripheralSetupError> {
-        let pwm_config = PWMConfig {
-            channel_mode: ChannelMode::default(),
-            requested_frequency_hz: 1000,
-        };
+        let pwm_config = PWMConfig::default();
 
         PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
     }
@@ -75,13 +69,7 @@ impl IOWarrior {
     }
 
     pub fn setup_spi(&self) -> Result<SPI, PeripheralSetupError> {
-        let spi_config = SPIConfig {
-            polarity: embedded_hal::spi::Polarity::IdleLow,
-            phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
-            use_data_ready_pin: false,
-            requested_frequency_hz: 4_000_000,
-            dummy_value: 0x00,
-        };
+        let spi_config = SPIConfig::default();
 
         SPI::new(&self.data, &self.mut_data_refcell, spi_config)
     }

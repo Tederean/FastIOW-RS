@@ -6,6 +6,15 @@ pub struct PWMConfig {
     pub requested_frequency_hz: u32,
 }
 
+impl Default for PWMConfig {
+    fn default() -> Self {
+        PWMConfig {
+            channel_mode: ChannelMode::Single,
+            requested_frequency_hz: 1_000,
+        }
+    }
+}
+
 impl fmt::Display for PWMConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -23,12 +32,6 @@ pub enum ChannelMode {
 impl fmt::Display for ChannelMode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl Default for ChannelMode {
-    fn default() -> Self {
-        ChannelMode::Single
     }
 }
 

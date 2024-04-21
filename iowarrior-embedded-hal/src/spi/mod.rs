@@ -1,6 +1,7 @@
 mod spi;
 mod spi_config;
 mod spi_data;
+mod spi_device;
 mod spi_error;
 mod spi_service;
 

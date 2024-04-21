@@ -6,6 +6,15 @@ pub struct I2CConfig {
     pub iow100_speed: IOW100Speed,
 }
 
+impl Default for I2CConfig {
+    fn default() -> Self {
+        I2CConfig {
+            iow56_clock: IOW56Clock::Standard93kHz,
+            iow100_speed: IOW100Speed::Standard100kb,
+        }
+    }
+}
+
 impl fmt::Display for I2CConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -22,12 +31,6 @@ pub enum IOW56Clock {
 impl fmt::Display for IOW56Clock {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl Default for IOW56Clock {
-    fn default() -> Self {
-        IOW56Clock::Standard93kHz
     }
 }
 
@@ -50,12 +53,6 @@ pub enum IOW100Speed {
 impl fmt::Display for IOW100Speed {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl Default for IOW100Speed {
-    fn default() -> Self {
-        IOW100Speed::Standard100kb
     }
 }
 

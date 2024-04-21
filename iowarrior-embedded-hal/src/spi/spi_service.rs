@@ -3,7 +3,7 @@ use crate::bits::Bitmasking;
 use crate::internal::{IOWarriorData, IowkitError, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::SPIError;
-use crate::IOWarriorType;
+use crate::{IOWarriorType, pin};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
@@ -164,15 +164,15 @@ pub fn transfer_data_in_place(
     Ok(())
 }
 
-pub fn get_chunk_size(data: &Rc<IOWarriorData>, spi_data: &SPIData) -> usize {
+fn get_chunk_size(data: &Rc<IOWarriorData>, spi_data: &SPIData) -> usize {
     data.special_report_size
         - match spi_data.spi_type {
-            IOWarriorSPIType::IOWarrior24 => 1usize,
-            IOWarriorSPIType::IOWarrior56 => 2usize,
+            IOWarriorSPIType::IOWarrior24 => 2usize,
+            IOWarriorSPIType::IOWarrior56 => 3usize,
         }
 }
 
-pub fn write_report(
+fn write_report(
     data: &Rc<IOWarriorData>,
     spi_data: &SPIData,
     write_chunk: &[u8],
@@ -221,7 +221,7 @@ pub fn write_report(
     })
 }
 
-pub fn read_report(
+fn read_report(
     data: &Rc<IOWarriorData>,
     spi_data: &SPIData,
     read_chunk: &mut [u8],
@@ -263,10 +263,10 @@ pub fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
 pub fn get_spi_pins(spi_type: IOWarriorSPIType) -> Vec<u8> {
     match spi_type {
         IOWarriorSPIType::IOWarrior24 => {
-            vec![0 * 8 + 3, 0 * 8 + 4, 0 * 8 + 5, 0 * 8 + 6, 0 * 8 + 7]
+            vec![pin!(0, 3), pin!(0, 4), pin!(0, 5), pin!(0, 6), pin!(0, 7)]
         }
         IOWarriorSPIType::IOWarrior56 => {
-            vec![5 * 8 + 3, 5 * 8 + 1, 5 * 8 + 2, 5 * 8 + 4, 5 * 8 + 0]
+            vec![pin!(5, 3), pin!(5, 1), pin!(5, 2), pin!(5, 4), pin!(5, 0)]
         }
     }
 }

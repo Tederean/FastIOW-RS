@@ -148,17 +148,52 @@ impl embedded_hal::spi::SpiDevice for SPI {
 
     #[inline]
     fn read(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        read_data(&self.data, &self.spi_data, buf)
+        match read_data(&self.data, &self.spi_data, buf) {
+            Ok(_) => {
+                print!("read {:02X?}", buf);
+                println!(" OK");
+                Ok(())
+            },
+            Err(err) => {
+                print!("read {:02X?}", buf);
+                println!(" ERROR {0}", err);
+                Err(err)
+            },
+        }
     }
 
     #[inline]
     fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        write_data(&self.data, &self.spi_data, buf)
+        match write_data(&self.data, &self.spi_data, buf) {
+            Ok(_) => {
+                print!("write {:02X?}", buf);
+                println!(" OK");
+                Ok(())
+            },
+            Err(err) => {
+                print!("write {:02X?}", buf);
+                println!(" ERROR {0}", err);
+                Err(err)
+            },
+        }
     }
 
     #[inline]
     fn transfer(&mut self, read: &mut [u8], write: &[u8]) -> Result<(), Self::Error> {
-        transfer_data(&self.data, &self.spi_data, read, write)
+        match transfer_data(&self.data, &self.spi_data, read, write) {
+            Ok(_) => {
+                print!("transfer:R {:02X?}", read);
+                print!(" transfer:W {:02X?}", write);
+                println!(" OK");
+                Ok(())
+            },
+            Err(err) => {
+                print!("transfer:R {:02X?}", read);
+                print!(" transfer:W {:02X?}", write);
+                println!(" ERROR {0}", err);
+                Err(err)
+            },
+        }
     }
 
     #[inline]

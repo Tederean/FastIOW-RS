@@ -9,6 +9,18 @@ pub struct SPIConfig {
     pub dummy_value: u8,
 }
 
+impl Default for SPIConfig {
+    fn default() -> Self {
+        SPIConfig {
+            polarity: embedded_hal::spi::Polarity::IdleLow,
+            phase: embedded_hal::spi::Phase::CaptureOnFirstTransition,
+            use_data_ready_pin: false,
+            requested_frequency_hz: 4_000_000,
+            dummy_value: 0x00,
+        }
+    }
+}
+
 impl fmt::Display for SPIConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)

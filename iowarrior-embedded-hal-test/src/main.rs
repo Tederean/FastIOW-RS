@@ -17,6 +17,7 @@ use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::Duration;
+use iowarrior_embedded_hal::spi::SPIConfig;
 
 fn main() {
     match sdcard() {
@@ -51,8 +52,10 @@ fn sdcard() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let spi = iowarrior.setup_spi()?;
-        let delay = iowarrior_embedded_hal::delay::Delay;
+        let spi_config = SPIConfig::default();
+
+        let spi = iowarrior.setup_spi_with_config(spi_config)?;
+        let delay = Delay::default();
         let cs = DummyCsPin;
 
         let sdcard = SdCard::new(spi, cs, delay);
