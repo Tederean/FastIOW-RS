@@ -16,27 +16,59 @@ use iowarrior_embedded_hal::get_iowarriors;
 use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use embedded_hal::spi::SpiDevice;
 use iowarrior_embedded_hal::spi::SPIConfig;
 
 fn main() {
-    match sdcard() {
+    match mcp() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+fn mcp() -> Result<()> {
+    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+        );
+
+        let mut spi = iowarrior.setup_spi()?;
+
+        spi.write(&[53, 171])?; // 1.7V
+
+        thread::sleep(Duration::from_secs(15));
+    }
+
+    Ok(())
 }
 
 struct TimeKeeping;
 
 impl TimeSource for TimeKeeping {
     fn get_timestamp(&self) -> Timestamp {
+        let now = SystemTime::now();
+        let since_the_epoch = now.duration_since(UNIX_EPOCH)
+            .expect("Time went backwards");
+        let in_seconds = since_the_epoch.as_secs();
+        let (year_since_1970, remaining) = (in_seconds / 31536000, in_seconds % 31536000);
+        let (zero_indexed_month, remaining) = (remaining / 2592000, remaining % 2592000);
+        let (zero_indexed_day, remaining) = (remaining / 86400, remaining % 86400);
+        let (hours, remaining) = (remaining / 3600, remaining % 3600);
+        let (minutes, seconds) = (remaining / 60, remaining % 60);
+
         Timestamp {
-            year_since_1970: 0,
-            zero_indexed_month: 0,
-            zero_indexed_day: 0,
-            hours: 0,
-            minutes: 0,
-            seconds: 0,
+            year_since_1970: year_since_1970 as u8,
+            zero_indexed_month: zero_indexed_month as u8,
+            zero_indexed_day: zero_indexed_day as u8,
+            hours: hours as u8,
+            minutes: minutes as u8,
+            seconds: seconds as u8,
         }
     }
 }
