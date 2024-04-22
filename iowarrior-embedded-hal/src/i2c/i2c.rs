@@ -14,6 +14,7 @@ use std::{fmt, iter};
 pub struct I2C {
     data: Rc<IOWarriorData>,
     mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    i2c_config: I2CConfig,
 }
 
 impl fmt::Display for I2C {
@@ -103,7 +104,12 @@ impl I2C {
         Ok(I2C {
             data: data.clone(),
             mut_data_refcell: mut_data_refcell.clone(),
+            i2c_config
         })
+    }
+
+    pub fn get_config(&self) -> I2CConfig {
+        self.i2c_config
     }
 
     fn check_valid_7bit_address(&self, address: u8) -> Result<(), I2CError> {

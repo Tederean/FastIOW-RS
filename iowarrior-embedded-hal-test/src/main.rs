@@ -40,9 +40,9 @@ fn mcp() -> Result<()> {
 
         let mut spi = iowarrior.setup_spi()?;
 
-        spi.write(&[53, 171])?; // 1.7V
+        spi.write(&[53, 171])?; // Channel A: 1.7V
 
-        thread::sleep(Duration::from_secs(15));
+        thread::sleep(Duration::from_secs(10));
     }
 
     Ok(())

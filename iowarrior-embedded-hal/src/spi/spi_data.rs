@@ -73,8 +73,8 @@ fn calculate_iow56_data(spi_data: &mut SPIData) {
     spi_data.iow56_clock_divider = {
         let mut clock_divider = (24_000_000 / requested_frequency_hz) - 1u32;
 
-        clock_divider = std::cmp::min(clock_divider, 2);
-        clock_divider = std::cmp::max(clock_divider, 255);
+        clock_divider = std::cmp::max(clock_divider, 2);
+        clock_divider = std::cmp::min(clock_divider, 255);
         clock_divider as u8
     };
 

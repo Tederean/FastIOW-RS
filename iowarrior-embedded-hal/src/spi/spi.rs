@@ -232,4 +232,8 @@ impl SPI {
             }
         }
     }
+
+    pub fn get_config(&self) -> (SPIConfig, u32) {
+        (self.spi_data.spi_config.clone(), self.spi_data.calculated_frequency_hz)
+    }
 }
