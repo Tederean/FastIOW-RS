@@ -2,7 +2,7 @@ use crate::internal::{
     disable_peripheral, enable_pwm, get_used_pins, IOWarriorData, IOWarriorMutData,
 };
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
-use crate::{IOWarriorType, Peripheral, PeripheralSetupError, pin};
+use crate::{pin, IOWarriorType, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;

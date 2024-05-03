@@ -2,7 +2,7 @@ use crate::internal::{
     create_report, read_report, write_report, IOWarriorData, IOWarriorMutData, IowkitData,
     IowkitError, Pipe, Report, ReportId,
 };
-use crate::{IOWarrior, IOWarriorType, pin, SerialNumberError};
+use crate::{pin, IOWarrior, IOWarriorType, SerialNumberError};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -123,9 +123,13 @@ fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
     match device_type {
         IOWarriorType::IOWarrior40 => vec![pin!(0, 6), pin!(0, 7)],
         IOWarriorType::IOWarrior24 => vec![pin!(0, 1), pin!(0, 2)],
-        IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => vec![pin!(2, 1), pin!(2, 0)],
+        IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => {
+            vec![pin!(2, 1), pin!(2, 0)]
+        }
         IOWarriorType::IOWarrior28L => vec![pin!(0, 1), pin!(0, 2)],
-        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => vec![pin!(1, 7), pin!(1, 5)],
+        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
+            vec![pin!(1, 7), pin!(1, 5)]
+        }
         IOWarriorType::IOWarrior100 => vec![pin!(10, 4), pin!(10, 5)],
     }
 }

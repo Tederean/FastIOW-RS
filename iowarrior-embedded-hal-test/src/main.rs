@@ -7,21 +7,21 @@ use embedded_graphics::{
     pixelcolor::BinaryColor,
     prelude::*,
 };
+use embedded_hal::spi::SpiDevice;
 use embedded_sdmmc::sdcard::DummyCsPin;
 use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::get_iowarriors;
+use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
 use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use embedded_hal::spi::SpiDevice;
-use iowarrior_embedded_hal::spi::SPIConfig;
 
 fn main() {
-    match mcp() {
+    match sdcard() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
@@ -53,8 +53,7 @@ struct TimeKeeping;
 impl TimeSource for TimeKeeping {
     fn get_timestamp(&self) -> Timestamp {
         let now = SystemTime::now();
-        let since_the_epoch = now.duration_since(UNIX_EPOCH)
-            .expect("Time went backwards");
+        let since_the_epoch = now.duration_since(UNIX_EPOCH).expect("Time went backwards");
         let in_seconds = since_the_epoch.as_secs();
         let (year_since_1970, remaining) = (in_seconds / 31536000, in_seconds % 31536000);
         let (zero_indexed_month, remaining) = (remaining / 2592000, remaining % 2592000);
@@ -84,9 +83,15 @@ fn sdcard() -> Result<()> {
             iowarrior.get_serial_number().unwrap_or("?".to_string()),
         );
 
-        let spi_config = SPIConfig::default();
+        let spi_config = SPIConfig {
+            mode: SPIMode::Mode0,
+            use_data_ready_pin: false,
+            requested_frequency_hz: 300_000,
+            dummy_value: 0xFF,
+        };
 
         let spi = iowarrior.setup_spi_with_config(spi_config)?;
+
         let delay = Delay::default();
         let cs = DummyCsPin;
 
@@ -98,7 +103,9 @@ fn sdcard() -> Result<()> {
                 .num_bytes()
                 .map_err(|_err| anyhow!("sdcard.num_bytes"))?
         );
+
         let mut volume_mgr = VolumeManager::new(sdcard, TimeKeeping);
+
         let mut volume0 = volume_mgr
             .open_volume(VolumeIdx(0))
             .map_err(|_err| anyhow!("volume_mgr.open_volume"))?;

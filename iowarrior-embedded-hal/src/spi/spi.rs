@@ -153,12 +153,12 @@ impl embedded_hal::spi::SpiDevice for SPI {
                 print!("read {:02X?}", buf);
                 println!(" OK");
                 Ok(())
-            },
+            }
             Err(err) => {
                 print!("read {:02X?}", buf);
                 println!(" ERROR {0}", err);
                 Err(err)
-            },
+            }
         }
     }
 
@@ -169,12 +169,12 @@ impl embedded_hal::spi::SpiDevice for SPI {
                 print!("write {:02X?}", buf);
                 println!(" OK");
                 Ok(())
-            },
+            }
             Err(err) => {
                 print!("write {:02X?}", buf);
                 println!(" ERROR {0}", err);
                 Err(err)
-            },
+            }
         }
     }
 
@@ -186,13 +186,13 @@ impl embedded_hal::spi::SpiDevice for SPI {
                 print!(" transfer:W {:02X?}", write);
                 println!(" OK");
                 Ok(())
-            },
+            }
             Err(err) => {
                 print!("transfer:R {:02X?}", read);
                 print!(" transfer:W {:02X?}", write);
                 println!(" ERROR {0}", err);
                 Err(err)
-            },
+            }
         }
     }
 
@@ -234,6 +234,9 @@ impl SPI {
     }
 
     pub fn get_config(&self) -> (SPIConfig, u32) {
-        (self.spi_data.spi_config.clone(), self.spi_data.calculated_frequency_hz)
+        (
+            self.spi_data.spi_config.clone(),
+            self.spi_data.calculated_frequency_hz,
+        )
     }
 }

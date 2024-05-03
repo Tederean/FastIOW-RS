@@ -104,7 +104,7 @@ impl I2C {
         Ok(I2C {
             data: data.clone(),
             mut_data_refcell: mut_data_refcell.clone(),
-            i2c_config
+            i2c_config,
         })
     }
 

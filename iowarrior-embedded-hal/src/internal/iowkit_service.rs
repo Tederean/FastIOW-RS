@@ -10,7 +10,6 @@ use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMData};
 use crate::spi::{IOWarriorSPIType, SPIData, SPIMode};
 use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use embedded_hal::digital::PinState;
-use embedded_hal::spi::{Phase, Polarity};
 use std::cell::RefMut;
 
 static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
@@ -329,18 +328,19 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), Iowki
 
                 mode.set_bit(
                     Bit2,
-                    match spi_data.spi_config.mode { // Yeah, CPHA is indeed inverted here...
+                    match spi_data.spi_config.mode {
+                        // Yeah, CPHA is indeed inverted here...
                         SPIMode::Mode0 | SPIMode::Mode2 => true, // CPHA 0
                         SPIMode::Mode1 | SPIMode::Mode3 => false, // CPHA 1
-                    }
+                    },
                 );
 
                 mode.set_bit(
                     Bit3,
                     match spi_data.spi_config.mode {
                         SPIMode::Mode0 | SPIMode::Mode1 => false, // CPOL 0
-                        SPIMode::Mode2 | SPIMode::Mode3 => true, // CPOL 1
-                    }
+                        SPIMode::Mode2 | SPIMode::Mode3 => true,  // CPOL 1
+                    },
                 );
 
                 mode
@@ -354,16 +354,16 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), Iowki
                     Bit2,
                     match spi_data.spi_config.mode {
                         SPIMode::Mode0 | SPIMode::Mode2 => false, // CPHA 0
-                        SPIMode::Mode1 | SPIMode::Mode3 => true, // CPHA 1
-                    }
+                        SPIMode::Mode1 | SPIMode::Mode3 => true,  // CPHA 1
+                    },
                 );
 
                 mode.set_bit(
                     Bit1,
                     match spi_data.spi_config.mode {
                         SPIMode::Mode0 | SPIMode::Mode1 => false, // CPOL 0
-                        SPIMode::Mode2 | SPIMode::Mode3 => true, // CPOL 1
-                    }
+                        SPIMode::Mode2 | SPIMode::Mode3 => true,  // CPOL 1
+                    },
                 );
 
                 mode.set_bit(Bit7, false); // MSB first

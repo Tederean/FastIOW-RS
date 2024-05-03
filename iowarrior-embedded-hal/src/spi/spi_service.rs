@@ -3,7 +3,7 @@ use crate::bits::Bitmasking;
 use crate::internal::{IOWarriorData, IowkitError, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::SPIError;
-use crate::{IOWarriorType, pin};
+use crate::{pin, IOWarriorType};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
