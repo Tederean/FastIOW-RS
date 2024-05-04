@@ -1,7 +1,7 @@
 use crate::bits::Bit;
 use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{iowkit_service, CommunicationError};
+use crate::communication::{communication_service, CommunicationError};
 use crate::digital::PinSetupError;
 use crate::i2c::I2CConfig;
 use crate::iowarrior::{
@@ -235,7 +235,7 @@ pub fn set_pin_output(
 
     pins_write_report.buffer[byte_index].set_bit(bit_index, bool::from(pin_state));
 
-    match iowkit_service::write_report(&data, &pins_write_report) {
+    match communication_service::write_report(&data, &pins_write_report) {
         Ok(_) => {
             mut_data.pins_write_report = pins_write_report;
             Ok(())
@@ -245,7 +245,7 @@ pub fn set_pin_output(
 }
 
 fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), CommunicationError> {
-    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
+    let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x01;
@@ -304,11 +304,11 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), Commu
         }
     }
 
-    iowkit_service::write_report(&data, &mut report)
+    communication_service::write_report(&data, &mut report)
 }
 
 fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), CommunicationError> {
-    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
+    let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x01;
@@ -327,21 +327,21 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), C
         | IOWarriorType::IOWarrior28L => {}
     }
 
-    iowkit_service::write_report(&data, &mut report)
+    communication_service::write_report(&data, &mut report)
 }
 
 fn send_disable_i2c(data: &IOWarriorData) -> Result<(), CommunicationError> {
-    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
+    let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x00;
 
-    iowkit_service::write_report(&data, &mut report)
+    communication_service::write_report(&data, &mut report)
 }
 
 pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), CommunicationError> {
     {
-        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+        let mut report = data.create_report(Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmSetup.get_value();
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
@@ -351,11 +351,11 @@ pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), C
             write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
         }
 
-        iowkit_service::write_report(&data, &mut report)?;
+        communication_service::write_report(&data, &mut report)?;
     }
 
     if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
-        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+        let mut report = data.create_report(Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmParameters.get_value();
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
@@ -368,7 +368,7 @@ pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), C
         write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
         write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
 
-        iowkit_service::write_report(&data, &mut report)?;
+        communication_service::write_report(&data, &mut report)?;
     }
 
     Ok(())
@@ -405,19 +405,19 @@ fn write_u16(bytes: &mut [u8], value: u16) {
 }
 
 fn send_disable_pwm(data: &IOWarriorData) -> Result<(), CommunicationError> {
-    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+    let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::PwmSetup.get_value();
     report.buffer[1] = 0x00;
 
-    iowkit_service::write_report(&data, &mut report)
+    communication_service::write_report(&data, &mut report)
 }
 
 fn send_disable_spi(data: &IOWarriorData) -> Result<(), CommunicationError> {
-    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+    let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x00;
 
-    iowkit_service::write_report(&data, &mut report)
+    communication_service::write_report(&data, &mut report)
 }

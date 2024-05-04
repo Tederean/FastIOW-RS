@@ -1,6 +1,6 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{iowkit_service, CommunicationError};
+use crate::communication::{communication_service, CommunicationError};
 use crate::i2c::I2CError;
 use crate::iowarrior::IOWarriorType;
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
@@ -74,7 +74,7 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
         let chunk_length = chunk.len() as u8;
 
         {
-            let mut report = iowkit_service::create_report(data, data.i2c_pipe);
+            let mut report = data.create_report(data.i2c_pipe);
 
             report.buffer[0] = report_id.get_value();
             report.buffer[1] = chunk_length;
@@ -101,13 +101,13 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
 }
 
 fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), I2CError> {
-    iowkit_service::write_report(data, &report).map_err(|error| match error {
+    communication_service::write_report(data, &report).map_err(|error| match error {
         CommunicationError::IOErrorUSB => I2CError::IOErrorUSB,
     })
 }
 
 fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CError> {
-    match iowkit_service::read_report(data, data.i2c_pipe) {
+    match communication_service::read_report(data, data.i2c_pipe) {
         Ok(report) => {
             assert_eq!(report.buffer[0], report_id.get_value());
 

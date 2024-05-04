@@ -1,4 +1,4 @@
-use crate::communication::{iowkit_service, CommunicationData, CommunicationError};
+use crate::communication::{communication_service, CommunicationData, CommunicationError};
 use crate::iowarrior::{
     IOWarrior, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, Report, ReportId,
 };
@@ -129,24 +129,24 @@ fn get_device_type(device_product_id: u16) -> Option<IOWarriorType> {
 }
 
 fn get_iowarrior56_subtype(data: &IOWarriorData) -> IOWarriorType {
-    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+    let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::AdcSetup.get_value();
     report.buffer[1] = 0x00;
 
-    match iowkit_service::write_report(&data, &report) {
+    match communication_service::write_report(&data, &report) {
         Ok(_) => IOWarriorType::IOWarrior56,
         Err(_) => IOWarriorType::IOWarrior56Dongle,
     }
 }
 
 fn get_iowarrior28_subtype(data: &IOWarriorData) -> IOWarriorType {
-    let mut report = iowkit_service::create_report(&data, Pipe::ADCMode);
+    let mut report = data.create_report(Pipe::ADCMode);
 
     report.buffer[0] = ReportId::AdcSetup.get_value();
     report.buffer[1] = 0x00;
 
-    match iowkit_service::write_report(&data, &mut report) {
+    match communication_service::write_report(&data, &mut report) {
         Ok(_) => IOWarriorType::IOWarrior28,
         Err(_) => IOWarriorType::IOWarrior28Dongle,
     }
@@ -219,15 +219,15 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
 
 fn get_pins_report(data: &IOWarriorData) -> Result<Report, CommunicationError> {
     {
-        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
+        let mut report = data.create_report(Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::GpioSpecialRead.get_value();
 
-        iowkit_service::write_report(&data, &report)?;
+        communication_service::write_report(&data, &report)?;
     }
 
     {
-        let mut report = iowkit_service::read_report(&data, Pipe::SpecialMode)?;
+        let mut report = communication_service::read_report(&data, Pipe::SpecialMode)?;
 
         report.buffer[0] = ReportId::GpioReadWrite.get_value();
 

@@ -1,6 +1,6 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
-use crate::communication::{iowkit_service, CommunicationError};
+use crate::communication::{communication_service, CommunicationError};
 use crate::digital::PinError;
 use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Pipe};
 use embedded_hal::digital::PinState;
@@ -13,7 +13,7 @@ pub fn is_pin_input_state(
     pin: u8,
     expected_pin_state: PinState,
 ) -> Result<bool, PinError> {
-    match iowkit_service::read_report_non_blocking(&data, Pipe::IOPins) {
+    match communication_service::read_report_non_blocking(&data, Pipe::IOPins) {
         None => {}
         Some(report) => {
             mut_data.pins_read_report = report;

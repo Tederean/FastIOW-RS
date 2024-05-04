@@ -1,6 +1,6 @@
 use crate::bits::Bit::{Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{iowkit_service, CommunicationError};
+use crate::communication::{communication_service, CommunicationError};
 use crate::iowarrior::{IOWarriorData, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::{SPIConfig, SPIError};
@@ -268,7 +268,7 @@ fn write_report(
         .buffer
         .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
-    iowkit_service::write_report(&data, &report).map_err(|error| match error {
+    communication_service::write_report(&data, &report).map_err(|error| match error {
         CommunicationError::IOErrorUSB => SPIError::IOErrorUSB,
     })
 }
@@ -278,7 +278,7 @@ fn read_report(
     spi_data: &SPIData,
     read_chunk: &mut [u8],
 ) -> Result<(), SPIError> {
-    match iowkit_service::read_report(&data, Pipe::SpecialMode) {
+    match communication_service::read_report(&data, Pipe::SpecialMode) {
         Ok(report) => {
             assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
 

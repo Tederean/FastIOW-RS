@@ -3,21 +3,6 @@ use crate::iowarrior::{IOWarriorData, Pipe, Report};
 
 static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
 
-pub fn create_report(data: &IOWarriorData, pipe: Pipe) -> Report {
-    Report {
-        buffer: match pipe {
-            Pipe::IOPins => {
-                vec![0u8; data.standard_report_size]
-            }
-
-            Pipe::SpecialMode | Pipe::I2CMode | Pipe::ADCMode => {
-                vec![0u8; data.special_report_size]
-            }
-        },
-        pipe,
-    }
-}
-
 pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), CommunicationError> {
     let written_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitWrite(
@@ -36,7 +21,7 @@ pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), Communi
 }
 
 pub fn read_report_non_blocking(data: &IOWarriorData, pipe: Pipe) -> Option<Report> {
-    let mut report = create_report(&data, pipe);
+    let mut report = data.create_report(pipe);
 
     let read_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitReadNonBlocking(
@@ -55,7 +40,7 @@ pub fn read_report_non_blocking(data: &IOWarriorData, pipe: Pipe) -> Option<Repo
 }
 
 pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, CommunicationError> {
-    let mut report = create_report(&data, pipe);
+    let mut report = data.create_report(pipe);
 
     let read_bytes = unsafe {
         data.iowkit_data.iowkit.IowKitRead(
