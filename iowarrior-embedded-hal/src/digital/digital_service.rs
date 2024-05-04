@@ -13,7 +13,11 @@ pub fn is_pin_input_state(
     pin: u8,
     expected_pin_state: PinState,
 ) -> Result<bool, PinError> {
-    match communication_service::read_report_non_blocking(&data, Pipe::IOPins) {
+    let report = communication_service::read_report_non_blocking(&data, Pipe::IOPins).map_err(|x| match  x {
+        CommunicationError::IOErrorUSB => PinError::IOErrorUSB
+    })?;
+
+    match report {
         None => {}
         Some(report) => {
             mut_data.pins_read_report = report;

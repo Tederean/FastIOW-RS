@@ -21,14 +21,14 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn main() {
-    match sdcard() {
+    match mcp() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
 }
 
 fn mcp() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(
@@ -73,7 +73,7 @@ impl TimeSource for TimeKeeping {
 }
 
 fn sdcard() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(
@@ -132,7 +132,7 @@ fn sdcard() -> Result<()> {
 }
 
 fn ssd1306() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(
@@ -165,7 +165,7 @@ fn ssd1306() -> Result<()> {
 }
 
 fn pwm() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         let _pwm = iowarrior.setup_pwm()?;
@@ -175,7 +175,7 @@ fn pwm() -> Result<()> {
 }
 
 fn pins() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         let pin = iowarrior.setup_output_as_low(8 * 2 + 0)?;
@@ -189,7 +189,7 @@ fn pins() -> Result<()> {
 }
 
 fn bh1750() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(
@@ -218,7 +218,7 @@ fn bh1750() -> Result<()> {
 }
 
 fn bmp280() -> Result<()> {
-    let mut iowarriors = get_iowarriors("C:\\Windows\\SysWOW64\\iowkit.dll")?;
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(

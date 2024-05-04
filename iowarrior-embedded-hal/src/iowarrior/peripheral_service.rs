@@ -245,7 +245,7 @@ pub fn set_pin_output(
 }
 
 fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), CommunicationError> {
-    let mut report = data.create_report(data.i2c_pipe);
+    let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x01;

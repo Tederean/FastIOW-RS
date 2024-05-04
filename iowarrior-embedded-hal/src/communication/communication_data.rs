@@ -1,35 +1,82 @@
-use crate::iowarrior::IOWarriorType;
 use std::fmt;
-use std::sync::Arc;
 
-static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
+#[cfg(feature = "iowkit")]
+pub use iowkit::*;
 
-#[derive(Debug)]
-pub struct IowkitData {
-    pub iowkit: iowkit_sys::Iowkit,
-    pub iowkit_handle: iowkit_sys::IOWKIT_HANDLE,
-}
+#[cfg(feature = "iowkit")]
+mod iowkit {
+    use std::fmt;
+    use crate::iowarrior::IOWarriorType;
 
-impl fmt::Display for IowkitData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
+    static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
+
+    #[derive(Debug)]
+    pub struct IowkitData {
+        pub iowkit: iowkit_sys::Iowkit,
+        pub iowkit_handle: iowkit_sys::IOWKIT_HANDLE,
+    }
+
+    impl fmt::Display for IowkitData {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{:?}", self)
+        }
+    }
+
+    impl Drop for IowkitData {
+        #[inline]
+        fn drop(&mut self) {
+            unsafe { self.iowkit.IowKitCloseDevice(self.iowkit_handle) }
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct CommunicationData {
+        pub iowkit_data: std::sync::Arc<IowkitData>,
+        pub device_handle: iowkit_sys::IOWKIT_HANDLE,
+        pub device_revision: u64,
+        pub device_serial: Option<String>,
+        pub device_type: IOWarriorType,
     }
 }
 
-impl Drop for IowkitData {
-    #[inline]
-    fn drop(&mut self) {
-        unsafe { self.iowkit.IowKitCloseDevice(self.iowkit_handle) }
-    }
-}
+#[cfg(feature = "usbhid")]
+pub use usbhid::*;
 
-#[derive(Debug)]
-pub struct CommunicationData {
-    pub iowkit_data: Arc<IowkitData>,
-    pub device_handle: iowkit_sys::IOWKIT_HANDLE,
-    pub device_revision: u64,
-    pub device_serial: Option<String>,
-    pub device_type: IOWarriorType,
+#[cfg(feature = "usbhid")]
+mod usbhid {
+    use std::fmt;
+    use hidapi::{HidDevice};
+    use crate::iowarrior::IOWarriorType;
+
+    #[derive(Debug)]
+    pub enum USBPipes {
+        Standard
+        {
+            pipe_0: HidDevice,
+            pipe_1: HidDevice,
+        },
+        IOW28
+        {
+            pipe_0: HidDevice,
+            pipe_1: HidDevice,
+            pipe_2: HidDevice,
+            pipe_3: HidDevice,
+        },
+    }
+
+    impl fmt::Display for USBPipes {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{:?}", self)
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct CommunicationData {
+        pub usb_pipes: USBPipes,
+        pub device_revision: u64,
+        pub device_serial: Option<String>,
+        pub device_type: IOWarriorType,
+    }
 }
 
 impl fmt::Display for CommunicationData {
