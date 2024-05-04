@@ -1,16 +1,11 @@
 use crate::communication::CommunicationData;
-use crate::iowarrior::{IOWarriorType, Report};
 use crate::iowarrior::Pipe;
+use crate::iowarrior::Report;
 use std::fmt;
-use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct IOWarriorData {
-    pub iowkit_data: Arc<CommunicationData>,
-    pub device_handle: iowkit_sys::IOWKIT_HANDLE,
-    pub device_revision: u64,
-    pub device_serial: Option<String>,
-    pub device_type: IOWarriorType,
+    pub communication_data: CommunicationData,
     pub standard_report_size: usize,
     pub special_report_size: usize,
     pub i2c_pipe: Pipe,

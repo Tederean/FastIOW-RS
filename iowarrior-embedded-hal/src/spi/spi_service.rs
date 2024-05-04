@@ -299,7 +299,7 @@ fn read_report(
 }
 
 pub fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
-    match data.device_type {
+    match data.communication_data.device_type {
         IOWarriorType::IOWarrior24 => Some(IOWarriorSPIType::IOWarrior24),
         IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
             Some(IOWarriorSPIType::IOWarrior56)

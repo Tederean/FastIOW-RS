@@ -173,8 +173,8 @@ pub fn enable_gpio(
     pin_state: PinState,
     pin: u8,
 ) -> Result<(), PinSetupError> {
-    if data.device_type == IOWarriorType::IOWarrior28Dongle
-        || data.device_type == IOWarriorType::IOWarrior56Dongle
+    if data.communication_data.device_type == IOWarriorType::IOWarrior28Dongle
+        || data.communication_data.device_type == IOWarriorType::IOWarrior56Dongle
     {
         return Err(PinSetupError::NotSupported);
     }
@@ -313,7 +313,7 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), C
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x01;
 
-    match data.device_type {
+    match data.communication_data.device_type {
         IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
             report.buffer[2] = i2c_config.iow56_clock.get_value();
         }

@@ -115,7 +115,7 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
                 return Err(I2CError::IOErrorI2C);
             }
 
-            match data.device_type {
+            match data.communication_data.device_type {
                 IOWarriorType::IOWarrior28
                 | IOWarriorType::IOWarrior28Dongle
                 | IOWarriorType::IOWarrior56

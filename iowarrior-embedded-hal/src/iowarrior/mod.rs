@@ -1,6 +1,7 @@
 mod iowarrior;
 mod iowarrior_data;
 mod iowarrior_mut_data;
+pub(crate) mod iowarrior_service;
 mod iowarrior_type;
 mod peripheral;
 pub(crate) mod peripheral_service;

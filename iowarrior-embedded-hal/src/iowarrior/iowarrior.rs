@@ -35,17 +35,17 @@ impl IOWarrior {
 
     #[inline]
     pub fn get_revision(&self) -> u64 {
-        self.data.device_revision
+        self.data.communication_data.device_revision
     }
 
     #[inline]
     pub fn get_type(&self) -> IOWarriorType {
-        self.data.device_type
+        self.data.communication_data.device_type
     }
 
     #[inline]
     pub fn get_serial_number(&self) -> Option<String> {
-        self.data.device_serial.clone()
+        self.data.communication_data.device_serial.clone()
     }
 
     pub fn setup_i2c_with_config(

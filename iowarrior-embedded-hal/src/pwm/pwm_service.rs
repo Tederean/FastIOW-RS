@@ -79,21 +79,21 @@ pub fn get_pwm_type(
     data: &Rc<IOWarriorData>,
     channel_mode: ChannelMode,
 ) -> Option<IOWarriorPWMType> {
-    if data.device_type == IOWarriorType::IOWarrior100 {
+    if data.communication_data.device_type == IOWarriorType::IOWarrior100 {
         return Some(IOWarriorPWMType::IOWarrior100);
     }
 
-    if data.device_type == IOWarriorType::IOWarrior56
-        || data.device_type == IOWarriorType::IOWarrior56Dongle
+    if data.communication_data.device_type == IOWarriorType::IOWarrior56
+        || data.communication_data.device_type == IOWarriorType::IOWarrior56Dongle
     {
-        if data.device_revision >= 0x2000
-            && data.device_revision < 0x2002
+        if data.communication_data.device_revision >= 0x2000
+            && data.communication_data.device_revision < 0x2002
             && channel_mode == ChannelMode::Single
         {
             return Some(IOWarriorPWMType::IOWarrior56);
         }
 
-        if data.device_revision >= 0x2002
+        if data.communication_data.device_revision >= 0x2002
             && (channel_mode == ChannelMode::Single || channel_mode == ChannelMode::Dual)
         {
             return Some(IOWarriorPWMType::IOWarrior56);

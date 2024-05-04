@@ -5,103 +5,30 @@ use crate::iowarrior::{
 use crate::pin;
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::Arc;
 
-pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
-    let iowkit = unsafe { iowkit_sys::Iowkit::new(path) }?;
-    let iowkit_handle = unsafe { iowkit.IowKitOpenDevice() };
-
-    if iowkit_handle.is_null() {
-        return Ok(Vec::<IOWarrior>::with_capacity(0));
-    }
-
-    let device_count = unsafe { iowkit.IowKitGetNumDevs() };
-    let mut vec: Vec<IOWarrior> = Vec::new();
-
-    let iowkit_data = Arc::new(CommunicationData {
-        iowkit,
-        iowkit_handle,
-    });
-
-    for index in 0..device_count {
-        match get_iowarrior(&iowkit_data, index) {
-            None => {}
-            Some(iowarrior) => {
-                vec.push(iowarrior);
-            }
-        }
-    }
-
-    Ok(vec)
-}
-
-fn get_iowarrior(
-    iowkit_data: &Arc<CommunicationData>,
-    index: iowkit_sys::ULONG,
-) -> Option<IOWarrior> {
-    let device_handle = unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) };
-
-    if device_handle.is_null() {
-        return None;
-    }
-
-    let device_product_id = unsafe { iowkit_data.iowkit.IowKitGetProductId(device_handle) };
-    let device_revision = unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle) } as u64;
-
-    let device_type = match get_device_type(device_product_id as u16) {
-        None => {
-            return None;
-        }
-        Some(io_warrior_type) => io_warrior_type,
-    };
-
-    let device_serial = {
-        if device_type == IOWarriorType::IOWarrior40 && device_revision < 0x1010 {
-            None
-        } else {
-            let mut raw_device_serial_number = [0u16; 9];
-
-            let device_serial_number_result = unsafe {
-                iowkit_data
-                    .iowkit
-                    .IowKitGetSerialNumber(device_handle, raw_device_serial_number.as_mut_ptr())
-            };
-
-            if device_serial_number_result > 0i32 {
-                Some(String::from_utf16_lossy(&raw_device_serial_number))
-            } else {
-                return None;
-            }
-        }
-    };
-
+pub fn create_iowarrior(
+    communication_data: CommunicationData,
+) -> Result<IOWarrior, CommunicationError> {
     let mut device_data = IOWarriorData {
-        iowkit_data: iowkit_data.clone(),
-        device_handle,
-        device_revision,
-        device_serial,
-        device_type,
-        i2c_pipe: get_i2c_pipe(device_type),
-        i2c_pins: get_i2c_pins(device_type),
-        standard_report_size: get_standard_report_size(device_type),
-        special_report_size: get_special_report_size(device_type),
+        i2c_pipe: get_i2c_pipe(communication_data.device_type),
+        i2c_pins: get_i2c_pins(communication_data.device_type),
+        standard_report_size: get_standard_report_size(communication_data.device_type),
+        special_report_size: get_special_report_size(communication_data.device_type),
         is_valid_gpio: |x| false,
+        communication_data,
     };
 
-    if device_data.device_type == IOWarriorType::IOWarrior56 {
-        device_data.device_type = get_iowarrior56_subtype(&device_data);
+    if device_data.communication_data.device_type == IOWarriorType::IOWarrior56 {
+        device_data.communication_data.device_type = get_iowarrior56_subtype(&device_data);
     }
 
-    if device_data.device_type == IOWarriorType::IOWarrior28 {
-        device_data.device_type = get_iowarrior28_subtype(&device_data);
+    if device_data.communication_data.device_type == IOWarriorType::IOWarrior28 {
+        device_data.communication_data.device_type = get_iowarrior28_subtype(&device_data);
     }
 
-    device_data.is_valid_gpio = get_is_valid_gpio(device_type);
+    device_data.is_valid_gpio = get_is_valid_gpio(device_data.communication_data.device_type);
 
-    let pins_report = match get_pins_report(&device_data) {
-        Ok(x) => x,
-        Err(_) => return None,
-    };
+    let pins_report = get_pins_report(&device_data)?;
 
     let mut_data = IOWarriorMutData {
         pins_in_use: vec![],
@@ -110,22 +37,10 @@ fn get_iowarrior(
         pins_read_report: pins_report,
     };
 
-    Some(IOWarrior::new(
+    Ok(IOWarrior::new(
         Rc::new(device_data),
         Rc::new(RefCell::new(mut_data)),
     ))
-}
-
-fn get_device_type(device_product_id: u16) -> Option<IOWarriorType> {
-    match device_product_id {
-        5376 => Some(IOWarriorType::IOWarrior40),
-        5377 => Some(IOWarriorType::IOWarrior24),
-        5359 => Some(IOWarriorType::IOWarrior56),
-        5380 => Some(IOWarriorType::IOWarrior28),
-        5381 => Some(IOWarriorType::IOWarrior28L),
-        5382 => Some(IOWarriorType::IOWarrior100),
-        _ => None,
-    }
 }
 
 fn get_iowarrior56_subtype(data: &IOWarriorData) -> IOWarriorType {
