@@ -1,10 +1,9 @@
 use crate::digital::{InputPin, OutputPin, PinSetupError};
 use crate::i2c::{I2CConfig, I2C};
 use crate::internal::{IOWarriorData, IOWarriorMutData};
-use crate::iowarrior::iowarrior_service;
 use crate::pwm::{PWMConfig, PWM};
 use crate::spi::{SPIConfig, SPI};
-use crate::{IOWarriorType, PeripheralSetupError, SerialNumberError};
+use crate::{IOWarriorType, PeripheralSetupError};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
 use std::fmt;
@@ -23,16 +22,19 @@ impl fmt::Display for IOWarrior {
 }
 
 impl IOWarrior {
+    #[inline]
     pub fn get_revision(&self) -> u64 {
         self.data.device_revision
     }
 
+    #[inline]
     pub fn get_type(&self) -> IOWarriorType {
         self.data.device_type
     }
 
-    pub fn get_serial_number(&self) -> Result<String, SerialNumberError> {
-        iowarrior_service::get_serial_number(&self.data)
+    #[inline]
+    pub fn get_serial_number(&self) -> Option<String> {
+        self.data.device_serial.clone()
     }
 
     pub fn setup_i2c_with_config(

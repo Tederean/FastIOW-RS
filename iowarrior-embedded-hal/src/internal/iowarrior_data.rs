@@ -8,6 +8,7 @@ pub struct IOWarriorData {
     pub iowkit_data: Arc<IowkitData>,
     pub device_handle: iowkit_sys::IOWKIT_HANDLE,
     pub device_revision: u64,
+    pub device_serial: Option<String>,
     pub device_type: IOWarriorType,
     pub standard_report_size: usize,
     pub special_report_size: usize,

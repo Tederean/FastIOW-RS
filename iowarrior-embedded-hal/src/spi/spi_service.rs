@@ -1,12 +1,63 @@
 use crate::bits::Bit::{Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::internal::{IOWarriorData, IowkitError, Pipe, Report, ReportId};
+use crate::internal::{iowkit_service, IOWarriorData, IowkitError, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
-use crate::spi::SPIError;
+use crate::spi::{SPIConfig, SPIError};
 use crate::{pin, IOWarriorType};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
+
+pub fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
+    let mut data = SPIData {
+        spi_type,
+        spi_config,
+        calculated_frequency_hz: u32::MAX,
+        iow24_mode: 0,
+        iow56_clock_divider: 0,
+    };
+
+    match spi_type {
+        IOWarriorSPIType::IOWarrior24 => calculate_iow24_data(&mut data),
+        IOWarriorSPIType::IOWarrior56 => calculate_iow56_data(&mut data),
+    }
+
+    data
+}
+
+fn calculate_iow24_data(spi_data: &mut SPIData) {
+    for (index, value) in [2_000_000u32, 1_000_000u32, 500_000u32, 62_500u32]
+        .iter()
+        .enumerate()
+    {
+        if spi_data
+            .spi_config
+            .requested_frequency_hz
+            .abs_diff(value.clone())
+            < spi_data
+                .spi_config
+                .requested_frequency_hz
+                .abs_diff(spi_data.calculated_frequency_hz)
+        {
+            spi_data.calculated_frequency_hz = value.clone();
+            spi_data.iow24_mode = index as u8;
+        }
+    }
+}
+
+fn calculate_iow56_data(spi_data: &mut SPIData) {
+    let requested_frequency_hz = std::cmp::max(1, spi_data.spi_config.requested_frequency_hz);
+
+    spi_data.iow56_clock_divider = {
+        let mut clock_divider = (24_000_000 / requested_frequency_hz) - 1u32;
+
+        clock_divider = std::cmp::max(clock_divider, 2);
+        clock_divider = std::cmp::min(clock_divider, 255);
+        clock_divider as u8
+    };
+
+    spi_data.calculated_frequency_hz = 24_000_000 / (spi_data.iow56_clock_divider as u32 + 1u32);
+}
 
 pub fn read_data(
     data: &Rc<IOWarriorData>,
@@ -72,7 +123,7 @@ pub fn write_data(
     Ok(())
 }
 
-pub fn transfer_data(
+pub fn transfer_data_with_different_size(
     data: &Rc<IOWarriorData>,
     spi_data: &SPIData,
     read: &mut [u8],
@@ -216,8 +267,8 @@ fn write_report(
         .buffer
         .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
-    crate::internal::write_report(&data, &report).map_err(|error| match error {
-        IowkitError::IOErrorIOWarrior => SPIError::IOErrorIOWarrior,
+    iowkit_service::write_report(&data, &report).map_err(|error| match error {
+        IowkitError::IOErrorUSB => SPIError::IOErrorUSB,
     })
 }
 
@@ -226,7 +277,7 @@ fn read_report(
     spi_data: &SPIData,
     read_chunk: &mut [u8],
 ) -> Result<(), SPIError> {
-    match crate::internal::read_report(&data, Pipe::SpecialMode) {
+    match iowkit_service::read_report(&data, Pipe::SpecialMode) {
         Ok(report) => {
             assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
 
@@ -240,7 +291,7 @@ fn read_report(
         }
         Err(error) => {
             return match error {
-                IowkitError::IOErrorIOWarrior => Err(SPIError::IOErrorIOWarrior),
+                IowkitError::IOErrorUSB => Err(SPIError::IOErrorUSB),
             }
         }
     }

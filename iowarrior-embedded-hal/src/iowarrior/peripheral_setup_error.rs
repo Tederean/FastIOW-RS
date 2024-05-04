@@ -4,8 +4,8 @@ use thiserror::Error;
 #[non_exhaustive]
 #[derive(Error, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum PeripheralSetupError {
-    #[error("IOWarrior input output error.")]
-    IOErrorIOWarrior,
+    #[error("USB input output error.")]
+    IOErrorUSB,
     #[error("Hardware is already set up.")]
     AlreadySetup,
     #[error("Required hardware is blocked by other peripheral {0}.")]

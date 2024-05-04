@@ -40,7 +40,7 @@ pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), IowkitE
     } as usize;
 
     if written_bytes != report.buffer.len() {
-        return Err(IowkitError::IOErrorIOWarrior);
+        return Err(IowkitError::IOErrorUSB);
     }
 
     Ok(())
@@ -78,7 +78,7 @@ pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, IowkitErr
     } as usize;
 
     if read_bytes != report.buffer.len() {
-        return Err(IowkitError::IOErrorIOWarrior);
+        return Err(IowkitError::IOErrorUSB);
     }
 
     Ok(report)
@@ -152,7 +152,7 @@ fn precheck_peripheral(
 
     match cleanup_dangling_modules(&data, mut_data) {
         true => {}
-        false => return Err(PeripheralSetupError::IOErrorIOWarrior),
+        false => return Err(PeripheralSetupError::IOErrorUSB),
     }
 
     let pin_conflicts: Vec<_> = mut_data
@@ -188,7 +188,7 @@ fn post_enable(
         }
         Err(error) => {
             return match error {
-                IowkitError::IOErrorIOWarrior => Err(PeripheralSetupError::IOErrorIOWarrior),
+                IowkitError::IOErrorUSB => Err(PeripheralSetupError::IOErrorUSB),
             }
         }
     }
@@ -266,7 +266,7 @@ pub fn enable_gpio(
 
     match cleanup_dangling_modules(&data, mut_data) {
         true => {}
-        false => return Err(PinSetupError::IOErrorIOWarrior),
+        false => return Err(PinSetupError::IOErrorUSB),
     }
 
     match set_pin_output(&data, mut_data, pin_state, pin) {
@@ -279,7 +279,7 @@ pub fn enable_gpio(
             Ok(())
         }
         Err(error) => Err(match error {
-            IowkitError::IOErrorIOWarrior => PinSetupError::IOErrorIOWarrior,
+            IowkitError::IOErrorUSB => PinSetupError::IOErrorUSB,
         }),
     }
 }

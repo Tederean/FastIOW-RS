@@ -1,10 +1,7 @@
-use crate::bits::{Bit, Bitmasking};
-use crate::digital::{PinError, PinSetupError};
-use crate::internal::{
-    disable_gpio, enable_gpio, set_pin_output, IOWarriorData, IOWarriorMutData, IowkitError,
-};
+use crate::digital::{digital_service, PinError, PinSetupError};
+use crate::internal::{iowkit_service, IOWarriorData, IOWarriorMutData};
 use embedded_hal::digital::PinState;
-use std::cell::{RefCell, RefMut};
+use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
@@ -20,34 +17,46 @@ impl embedded_hal::digital::ErrorType for OutputPin {
 }
 
 impl embedded_hal::digital::OutputPin for OutputPin {
+    #[inline]
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        self.set(&mut mut_data, PinState::Low)
+        digital_service::set_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::Low,
+        )
     }
 
+    #[inline]
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        self.set(&mut mut_data, PinState::High)
+        digital_service::set_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::High,
+        )
     }
 }
 
 impl embedded_hal::digital::StatefulOutputPin for OutputPin {
+    #[inline]
     fn is_set_high(&mut self) -> Result<bool, Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        let is_set = self.is_set(&mut mut_data, PinState::High);
-
-        Ok(is_set)
+        digital_service::is_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::High,
+        )
     }
 
+    #[inline]
     fn is_set_low(&mut self) -> Result<bool, Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        let is_set = self.is_set(&mut mut_data, PinState::Low);
-
-        Ok(is_set)
+        digital_service::is_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::Low,
+        )
     }
 }
 
@@ -55,35 +64,47 @@ impl embedded_hal::digital::StatefulOutputPin for OutputPin {
 impl embedded_hal_0::digital::v2::OutputPin for OutputPin {
     type Error = PinError;
 
+    #[inline]
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        self.set(&mut mut_data, PinState::Low)
+        digital_service::set_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::Low,
+        )
     }
 
+    #[inline]
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        self.set(&mut mut_data, PinState::High)
+        digital_service::set_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::High,
+        )
     }
 }
 
 #[cfg(feature = "embedded-hal-0")]
 impl embedded_hal_0::digital::v2::StatefulOutputPin for OutputPin {
+    #[inline]
     fn is_set_high(&self) -> Result<bool, Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        let is_set = self.is_set(&mut mut_data, PinState::High);
-
-        Ok(is_set)
+        digital_service::is_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::High,
+        )
     }
 
+    #[inline]
     fn is_set_low(&self) -> Result<bool, Self::Error> {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        let is_set = self.is_set(&mut mut_data, PinState::Low);
-
-        Ok(is_set)
+        digital_service::is_pin_output_state(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+            PinState::Low,
+        )
     }
 }
 
@@ -94,54 +115,35 @@ impl fmt::Display for OutputPin {
 }
 
 impl Drop for OutputPin {
+    #[inline]
     fn drop(&mut self) {
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        disable_gpio(&self.data, &mut mut_data, self.pin);
+        iowkit_service::disable_gpio(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            self.pin,
+        );
     }
 }
 
 impl OutputPin {
+    #[inline]
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         pin: u8,
         initial_pin_state: PinState,
     ) -> Result<OutputPin, PinSetupError> {
-        let mut mut_data = mut_data_refcell.borrow_mut();
-
-        enable_gpio(&data, &mut mut_data, initial_pin_state, pin)?;
+        iowkit_service::enable_gpio(
+            &data,
+            &mut mut_data_refcell.borrow_mut(),
+            initial_pin_state,
+            pin,
+        )?;
 
         Ok(OutputPin {
             pin,
             data: data.clone(),
             mut_data_refcell: mut_data_refcell.clone(),
         })
-    }
-
-    fn set(
-        &self,
-        mut_data: &mut RefMut<IOWarriorMutData>,
-        pin_state: PinState,
-    ) -> Result<(), PinError> {
-        set_pin_output(&self.data, mut_data, pin_state, self.pin).map_err(|error| match error {
-            IowkitError::IOErrorIOWarrior => PinError::IOErrorIOWarrior,
-        })
-    }
-
-    fn is_set(
-        &self,
-        mut_data: &mut RefMut<IOWarriorMutData>,
-        expected_pin_state: PinState,
-    ) -> bool {
-        let byte_index = ((self.pin as usize) / 8usize) + 1;
-        let bit_index = Bit::from_u8(self.pin % 8u8);
-
-        let value = mut_data.pins_write_report.buffer[byte_index].get_bit(bit_index);
-
-        match expected_pin_state {
-            PinState::Low => !value,
-            PinState::High => value,
-        }
     }
 }

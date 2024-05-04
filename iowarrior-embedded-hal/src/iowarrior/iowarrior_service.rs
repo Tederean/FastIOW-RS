@@ -1,8 +1,8 @@
 use crate::internal::{
-    create_report, read_report, write_report, IOWarriorData, IOWarriorMutData, IowkitData,
+    iowkit_service, IOWarriorData, IOWarriorMutData, IowkitData,
     IowkitError, Pipe, Report, ReportId,
 };
-use crate::{pin, IOWarrior, IOWarriorType, SerialNumberError};
+use crate::{pin, IOWarrior, IOWarriorType};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -45,20 +45,38 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Opt
     let device_product_id = unsafe { iowkit_data.iowkit.IowKitGetProductId(device_handle) };
     let device_revision = unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle) } as u64;
 
-    let device_type = match device_product_id {
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW40 => IOWarriorType::IOWarrior40,
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW24 => IOWarriorType::IOWarrior24,
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW56 => IOWarriorType::IOWarrior56,
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW28 => IOWarriorType::IOWarrior28,
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW28L => IOWarriorType::IOWarrior28L,
-        iowkit_sys::IOWKIT_PRODUCT_ID_IOW100 => IOWarriorType::IOWarrior100,
-        _ => return None,
+    let device_type = match get_device_type(device_product_id as u16) {
+        None => {
+            return None;
+        }
+        Some(io_warrior_type) => io_warrior_type,
+    };
+
+    let device_serial = {
+        if device_type == IOWarriorType::IOWarrior40 && device_revision < 0x1010 {
+            None
+        } else {
+            let mut raw_device_serial_number = [0u16; 9];
+
+            let device_serial_number_result = unsafe {
+                iowkit_data
+                    .iowkit
+                    .IowKitGetSerialNumber(device_handle, raw_device_serial_number.as_mut_ptr())
+            };
+
+            if device_serial_number_result > 0i32 {
+                Some(String::from_utf16_lossy(&raw_device_serial_number))
+            } else {
+                return None;
+            }
+        }
     };
 
     let mut device_data = IOWarriorData {
         iowkit_data: iowkit_data.clone(),
         device_handle,
         device_revision,
+        device_serial,
         device_type,
         i2c_pipe: get_i2c_pipe(device_type),
         i2c_pins: get_i2c_pins(device_type),
@@ -95,25 +113,37 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Opt
     })
 }
 
+fn get_device_type(device_product_id: u16) -> Option<IOWarriorType> {
+    match device_product_id {
+        5376 => Some(IOWarriorType::IOWarrior40),
+        5377 => Some(IOWarriorType::IOWarrior24),
+        5359 => Some(IOWarriorType::IOWarrior56),
+        5380 => Some(IOWarriorType::IOWarrior28),
+        5381 => Some(IOWarriorType::IOWarrior28L),
+        5382 => Some(IOWarriorType::IOWarrior100),
+        _ => None,
+    }
+}
+
 fn get_iowarrior56_subtype(data: &IOWarriorData) -> IOWarriorType {
-    let mut report = create_report(&data, Pipe::SpecialMode);
+    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::AdcSetup.get_value();
     report.buffer[1] = 0x00;
 
-    match write_report(&data, &report) {
+    match iowkit_service::write_report(&data, &report) {
         Ok(_) => IOWarriorType::IOWarrior56,
         Err(_) => IOWarriorType::IOWarrior56Dongle,
     }
 }
 
 fn get_iowarrior28_subtype(data: &IOWarriorData) -> IOWarriorType {
-    let mut report = create_report(&data, Pipe::ADCMode);
+    let mut report = iowkit_service::create_report(&data, Pipe::ADCMode);
 
     report.buffer[0] = ReportId::AdcSetup.get_value();
     report.buffer[1] = 0x00;
 
-    match write_report(&data, &mut report) {
+    match iowkit_service::write_report(&data, &mut report) {
         Ok(_) => IOWarriorType::IOWarrior28,
         Err(_) => IOWarriorType::IOWarrior28Dongle,
     }
@@ -186,15 +216,15 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
 
 fn get_pins_report(data: &IOWarriorData) -> Result<Report, IowkitError> {
     {
-        let mut report = create_report(&data, Pipe::SpecialMode);
+        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::GpioSpecialRead.get_value();
 
-        write_report(&data, &report)?;
+        iowkit_service::write_report(&data, &report)?;
     }
 
     {
-        let mut report = read_report(&data, Pipe::SpecialMode)?;
+        let mut report = iowkit_service::read_report(&data, Pipe::SpecialMode)?;
 
         report.buffer[0] = ReportId::GpioReadWrite.get_value();
 
@@ -207,25 +237,5 @@ fn get_pins_report(data: &IOWarriorData) -> Result<Report, IowkitError> {
                 .take(data.standard_report_size)
                 .collect(),
         })
-    }
-}
-
-pub(crate) fn get_serial_number(data: &IOWarriorData) -> Result<String, SerialNumberError> {
-    if data.device_type == IOWarriorType::IOWarrior40 && data.device_revision < 0x1010 {
-        Err(SerialNumberError::NotExisting)
-    } else {
-        let mut raw_device_serial_number = [0u16; 9];
-
-        let device_serial_number_result = unsafe {
-            data.iowkit_data
-                .iowkit
-                .IowKitGetSerialNumber(data.device_handle, raw_device_serial_number.as_mut_ptr())
-        };
-
-        if device_serial_number_result > 0i32 {
-            Ok(String::from_utf16_lossy(&raw_device_serial_number))
-        } else {
-            Err(SerialNumberError::IOErrorIOWarrior)
-        }
     }
 }

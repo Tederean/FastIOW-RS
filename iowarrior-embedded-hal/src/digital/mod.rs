@@ -1,3 +1,4 @@
+pub(crate) mod digital_service;
 mod input_pin;
 mod output_pin;
 mod pin_error;

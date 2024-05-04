@@ -4,8 +4,8 @@ use thiserror::Error;
 #[non_exhaustive]
 #[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum PinSetupError {
-    #[error("IOWarrior input output error.")]
-    IOErrorIOWarrior,
+    #[error("USB input output error.")]
+    IOErrorUSB,
     #[error("Pin not existing.")]
     PinNotExisting,
     #[error("Pin already configured.")]
