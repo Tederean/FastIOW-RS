@@ -1,6 +1,7 @@
-use crate::internal::{iowkit_service, IOWarriorData, IOWarriorMutData};
+use crate::internal::iowkit_service;
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{Peripheral, PeripheralSetupError};
 use crate::spi::{spi_service, IOWarriorSPIType, SPIConfig, SPIData, SPIError};
-use crate::{Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;

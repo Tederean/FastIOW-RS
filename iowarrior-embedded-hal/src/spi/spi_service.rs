@@ -1,9 +1,10 @@
 use crate::bits::Bit::{Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::internal::{iowkit_service, IOWarriorData, IowkitError, Pipe, Report, ReportId};
+use crate::internal::{iowkit_service, IowkitError};
+use crate::iowarrior::{IOWarriorData, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::{SPIConfig, SPIError};
-use crate::{pin, IOWarriorType};
+use crate::{iowarrior::IOWarriorType, pin};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;

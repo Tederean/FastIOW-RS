@@ -1,6 +1,6 @@
 use crate::i2c::{i2c_service, I2CConfig, I2CError};
-use crate::internal::{iowkit_service, IOWarriorData, IOWarriorMutData};
-use crate::{Peripheral, PeripheralSetupError};
+use crate::internal::iowkit_service;
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;

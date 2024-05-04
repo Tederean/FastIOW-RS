@@ -1,8 +1,8 @@
-use crate::internal::{
-    iowkit_service, IOWarriorData, IOWarriorMutData, IowkitData,
-    IowkitError, Pipe, Report, ReportId,
+use crate::internal::{iowkit_service, IowkitData, IowkitError};
+use crate::iowarrior::{
+    IOWarrior, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, Report, ReportId,
 };
-use crate::{pin, IOWarrior, IOWarriorType};
+use crate::pin;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -107,10 +107,10 @@ fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Opt
         pins_read_report: pins_report,
     };
 
-    Some(IOWarrior {
-        data: Rc::new(device_data),
-        mut_data_refcell: Rc::new(RefCell::new(mut_data)),
-    })
+    Some(IOWarrior::new(
+        Rc::new(device_data),
+        Rc::new(RefCell::new(mut_data)),
+    ))
 }
 
 fn get_device_type(device_product_id: u16) -> Option<IOWarriorType> {

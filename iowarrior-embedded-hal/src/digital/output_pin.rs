@@ -1,5 +1,6 @@
 use crate::digital::{digital_service, PinError, PinSetupError};
-use crate::internal::{iowkit_service, IOWarriorData, IOWarriorMutData};
+use crate::internal::iowkit_service;
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
 use std::fmt;

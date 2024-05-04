@@ -1,4 +1,4 @@
-use crate::internal::Pipe;
+use crate::iowarrior::Pipe;
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

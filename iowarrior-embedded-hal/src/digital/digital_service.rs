@@ -1,7 +1,8 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
 use crate::digital::PinError;
-use crate::internal::{iowkit_service, IOWarriorData, IOWarriorMutData, IowkitError, Pipe};
+use crate::internal::{iowkit_service, IowkitError};
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Pipe};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
 use std::rc::Rc;

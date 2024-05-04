@@ -1,5 +1,5 @@
-use crate::internal::{Report, UsedPin};
-use crate::Peripheral;
+use crate::iowarrior::Peripheral;
+use crate::iowarrior::{Report, UsedPin};
 use std::fmt;
 
 #[derive(Debug)]

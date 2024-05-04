@@ -1,8 +1,9 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
 use crate::i2c::I2CError;
-use crate::internal::{iowkit_service, IOWarriorData, IowkitError, Report, ReportId};
-use crate::IOWarriorType;
+use crate::internal::{iowkit_service, IowkitError};
+use crate::iowarrior::IOWarriorType;
+use crate::iowarrior::{IOWarriorData, Report, ReportId};
 use std::iter;
 use std::rc::Rc;
 

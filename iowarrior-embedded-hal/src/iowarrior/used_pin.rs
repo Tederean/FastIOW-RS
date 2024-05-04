@@ -1,4 +1,4 @@
-use crate::Peripheral;
+use crate::iowarrior::Peripheral;
 use std::fmt;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

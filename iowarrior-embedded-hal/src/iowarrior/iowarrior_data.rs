@@ -1,5 +1,6 @@
-use crate::internal::{IowkitData, Pipe};
-use crate::IOWarriorType;
+use crate::internal::IowkitData;
+use crate::iowarrior::IOWarriorType;
+use crate::iowarrior::Pipe;
 use std::fmt;
 use std::sync::Arc;
 

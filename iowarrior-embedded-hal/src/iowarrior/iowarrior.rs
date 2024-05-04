@@ -1,9 +1,9 @@
 use crate::digital::{InputPin, OutputPin, PinSetupError};
 use crate::i2c::{I2CConfig, I2C};
-use crate::internal::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{IOWarriorType, PeripheralSetupError};
 use crate::pwm::{PWMConfig, PWM};
 use crate::spi::{SPIConfig, SPI};
-use crate::{IOWarriorType, PeripheralSetupError};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
 use std::fmt;
@@ -11,8 +11,8 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct IOWarrior {
-    pub(crate) data: Rc<IOWarriorData>,
-    pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    data: Rc<IOWarriorData>,
+    mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
 }
 
 impl fmt::Display for IOWarrior {
@@ -22,6 +22,17 @@ impl fmt::Display for IOWarrior {
 }
 
 impl IOWarrior {
+    #[inline]
+    pub(crate) fn new(
+        data: Rc<IOWarriorData>,
+        mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    ) -> IOWarrior {
+        IOWarrior {
+            data,
+            mut_data_refcell,
+        }
+    }
+
     #[inline]
     pub fn get_revision(&self) -> u64 {
         self.data.device_revision

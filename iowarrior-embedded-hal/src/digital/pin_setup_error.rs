@@ -1,4 +1,4 @@
-use crate::Peripheral;
+use crate::iowarrior::Peripheral;
 use thiserror::Error;
 
 #[non_exhaustive]

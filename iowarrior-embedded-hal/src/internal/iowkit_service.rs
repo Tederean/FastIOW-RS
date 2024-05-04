@@ -3,12 +3,11 @@ use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit7};
 use crate::bits::Bitmasking;
 use crate::digital::PinSetupError;
 use crate::i2c::I2CConfig;
-use crate::internal::{
-    IOWarriorData, IOWarriorMutData, IowkitError, Pipe, Report, ReportId, UsedPin,
-};
+use crate::internal::IowkitError;
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Pipe, Report, ReportId, UsedPin};
+use crate::iowarrior::{IOWarriorType, Peripheral, PeripheralSetupError};
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMData};
 use crate::spi::{IOWarriorSPIType, SPIData, SPIMode};
-use crate::{IOWarriorType, Peripheral, PeripheralSetupError};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
 

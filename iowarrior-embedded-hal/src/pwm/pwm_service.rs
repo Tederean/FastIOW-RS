@@ -1,6 +1,6 @@
-use crate::internal::IOWarriorData;
+use crate::iowarrior::IOWarriorData;
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
-use crate::{pin, IOWarriorType};
+use crate::{iowarrior::IOWarriorType, pin};
 use std::rc::Rc;
 
 pub fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
