@@ -1,8 +1,8 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
+use crate::communication::{iowkit_service, CommunicationError};
 use crate::digital::PinError;
-use crate::internal::{iowkit_service, IowkitError};
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Pipe};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Pipe};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
 use std::rc::Rc;
@@ -37,9 +37,11 @@ pub fn set_pin_output_state(
     pin: u8,
     pin_state: PinState,
 ) -> Result<(), PinError> {
-    iowkit_service::set_pin_output(data, mut_data, pin_state, pin).map_err(|error| match error {
-        IowkitError::IOErrorUSB => PinError::IOErrorUSB,
-    })
+    peripheral_service::set_pin_output(data, mut_data, pin_state, pin).map_err(
+        |error| match error {
+            CommunicationError::IOErrorUSB => PinError::IOErrorUSB,
+        },
+    )
 }
 
 pub fn is_pin_output_state(

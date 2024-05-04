@@ -1,7 +1,7 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
+use crate::communication::{iowkit_service, CommunicationError};
 use crate::i2c::I2CError;
-use crate::internal::{iowkit_service, IowkitError};
 use crate::iowarrior::IOWarriorType;
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
 use std::iter;
@@ -102,7 +102,7 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
 
 fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), I2CError> {
     iowkit_service::write_report(data, &report).map_err(|error| match error {
-        IowkitError::IOErrorUSB => I2CError::IOErrorUSB,
+        CommunicationError::IOErrorUSB => I2CError::IOErrorUSB,
     })
 }
 
@@ -134,7 +134,7 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
         }
         Err(error) => {
             return match error {
-                IowkitError::IOErrorUSB => Err(I2CError::IOErrorUSB),
+                CommunicationError::IOErrorUSB => Err(I2CError::IOErrorUSB),
             }
         }
     }

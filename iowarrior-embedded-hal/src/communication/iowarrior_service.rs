@@ -1,4 +1,4 @@
-use crate::internal::{iowkit_service, IowkitData, IowkitError};
+use crate::communication::{iowkit_service, CommunicationData, CommunicationError};
 use crate::iowarrior::{
     IOWarrior, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, Report, ReportId,
 };
@@ -18,7 +18,7 @@ pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
     let device_count = unsafe { iowkit.IowKitGetNumDevs() };
     let mut vec: Vec<IOWarrior> = Vec::new();
 
-    let iowkit_data = Arc::new(IowkitData {
+    let iowkit_data = Arc::new(CommunicationData {
         iowkit,
         iowkit_handle,
     });
@@ -35,7 +35,10 @@ pub fn get_iowarriors(path: &str) -> Result<Vec<IOWarrior>, libloading::Error> {
     Ok(vec)
 }
 
-fn get_iowarrior(iowkit_data: &Arc<IowkitData>, index: iowkit_sys::ULONG) -> Option<IOWarrior> {
+fn get_iowarrior(
+    iowkit_data: &Arc<CommunicationData>,
+    index: iowkit_sys::ULONG,
+) -> Option<IOWarrior> {
     let device_handle = unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) };
 
     if device_handle.is_null() {
@@ -214,7 +217,7 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
     }
 }
 
-fn get_pins_report(data: &IOWarriorData) -> Result<Report, IowkitError> {
+fn get_pins_report(data: &IOWarriorData) -> Result<Report, CommunicationError> {
     {
         let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 

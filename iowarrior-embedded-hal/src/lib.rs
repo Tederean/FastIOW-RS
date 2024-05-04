@@ -2,14 +2,14 @@
 #![allow(unused_variables)]
 
 pub mod bits;
+pub(crate) mod communication;
 pub mod delay;
 pub mod digital;
 pub mod i2c;
-mod internal;
 pub mod iowarrior;
 pub mod pwm;
 pub mod spi;
-pub use self::internal::iowarrior_service::get_iowarriors;
+pub use self::communication::iowarrior_service::get_iowarriors;
 
 #[macro_export]
 macro_rules! pin {

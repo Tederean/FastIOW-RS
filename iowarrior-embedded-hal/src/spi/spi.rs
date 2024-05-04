@@ -1,5 +1,4 @@
-use crate::internal::iowkit_service;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::{Peripheral, PeripheralSetupError};
 use crate::spi::{spi_service, IOWarriorSPIType, SPIConfig, SPIData, SPIError};
 use std::cell::RefCell;
@@ -23,7 +22,7 @@ impl fmt::Display for SPI {
 impl Drop for SPI {
     #[inline]
     fn drop(&mut self) {
-        iowkit_service::disable_peripheral(
+        peripheral_service::disable_peripheral(
             &self.data,
             &mut self.mut_data_refcell.borrow_mut(),
             Peripheral::SPI,
@@ -197,7 +196,7 @@ impl SPI {
                 let mut mut_data = mut_data_refcell.borrow_mut();
 
                 if spi_type == IOWarriorSPIType::IOWarrior56
-                    && iowkit_service::get_used_pins(&mut mut_data, Peripheral::PWM).len() > 1
+                    && peripheral_service::get_used_pins(&mut mut_data, Peripheral::PWM).len() > 1
                 {
                     return Err(PeripheralSetupError::HardwareBlocked(Peripheral::PWM));
                 }
@@ -205,7 +204,7 @@ impl SPI {
                 let spi_pins = spi_service::get_spi_pins(spi_type);
                 let spi_data = spi_service::calculate_spi_data(spi_type, spi_config);
 
-                iowkit_service::enable_spi(&data, &mut mut_data, &spi_data, &spi_pins)?;
+                peripheral_service::enable_spi(&data, &mut mut_data, &spi_data, &spi_pins)?;
 
                 Ok(SPI {
                     data: data.clone(),

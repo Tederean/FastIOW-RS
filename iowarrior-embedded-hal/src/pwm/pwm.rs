@@ -1,5 +1,4 @@
-use crate::internal::iowkit_service;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData};
 use crate::iowarrior::{Peripheral, PeripheralSetupError};
 use crate::pwm::{pwm_service, ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
 use std::cell::RefCell;
@@ -23,7 +22,7 @@ impl fmt::Display for PWM {
 impl Drop for PWM {
     #[inline]
     fn drop(&mut self) {
-        iowkit_service::disable_peripheral(
+        peripheral_service::disable_peripheral(
             &self.data,
             &mut self.mut_data_refcell.borrow_mut(),
             Peripheral::PWM,
@@ -45,7 +44,7 @@ impl PWM {
 
                 if pwm_type == IOWarriorPWMType::IOWarrior56
                     && pwm_config.channel_mode == ChannelMode::Dual
-                    && iowkit_service::get_used_pins(&mut mut_data, Peripheral::SPI).len() > 0
+                    && peripheral_service::get_used_pins(&mut mut_data, Peripheral::SPI).len() > 0
                 {
                     return Err(PeripheralSetupError::HardwareBlocked(Peripheral::SPI));
                 }
@@ -53,7 +52,7 @@ impl PWM {
                 let pwm_pins = pwm_service::get_pwm_pins(pwm_type, pwm_config.channel_mode);
                 let pwm_data = pwm_service::calculate_pwm_data(pwm_type, pwm_config);
 
-                iowkit_service::enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
+                peripheral_service::enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
 
                 Ok(PWM {
                     data: data.clone(),

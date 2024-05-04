@@ -1,6 +1,7 @@
 use crate::i2c::{i2c_service, I2CConfig, I2CError};
-use crate::internal::iowkit_service;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError};
+use crate::iowarrior::{
+    peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError,
+};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -21,7 +22,7 @@ impl fmt::Display for I2C {
 impl Drop for I2C {
     #[inline]
     fn drop(&mut self) {
-        iowkit_service::disable_peripheral(
+        peripheral_service::disable_peripheral(
             &self.data,
             &mut self.mut_data_refcell.borrow_mut(),
             Peripheral::I2C,
@@ -105,7 +106,7 @@ impl I2C {
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         i2c_config: I2CConfig,
     ) -> Result<I2C, PeripheralSetupError> {
-        iowkit_service::enable_i2c(&data, &mut mut_data_refcell.borrow_mut(), i2c_config)?;
+        peripheral_service::enable_i2c(&data, &mut mut_data_refcell.borrow_mut(), i2c_config)?;
 
         Ok(I2C {
             data: data.clone(),

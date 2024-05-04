@@ -1,7 +1,6 @@
 use crate::digital::digital_service;
 use crate::digital::{PinError, PinSetupError};
-use crate::internal::iowkit_service;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
 use std::fmt;
@@ -74,7 +73,7 @@ impl fmt::Display for InputPin {
 impl Drop for InputPin {
     #[inline]
     fn drop(&mut self) {
-        iowkit_service::disable_gpio(
+        peripheral_service::disable_gpio(
             &self.data,
             &mut self.mut_data_refcell.borrow_mut(),
             self.pin,
@@ -89,7 +88,7 @@ impl InputPin {
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         pin: u8,
     ) -> Result<InputPin, PinSetupError> {
-        iowkit_service::enable_gpio(
+        peripheral_service::enable_gpio(
             &data,
             &mut mut_data_refcell.borrow_mut(),
             PinState::High,

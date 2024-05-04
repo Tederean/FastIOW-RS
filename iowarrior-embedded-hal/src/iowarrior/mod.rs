@@ -3,6 +3,7 @@ mod iowarrior_data;
 mod iowarrior_mut_data;
 mod iowarrior_type;
 mod peripheral;
+pub(crate) mod peripheral_service;
 mod peripheral_setup_error;
 mod pipe;
 mod report;

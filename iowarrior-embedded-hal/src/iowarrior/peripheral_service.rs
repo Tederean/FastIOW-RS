@@ -1,87 +1,17 @@
 use crate::bits::Bit;
 use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit7};
 use crate::bits::Bitmasking;
+use crate::communication::{iowkit_service, CommunicationError};
 use crate::digital::PinSetupError;
 use crate::i2c::I2CConfig;
-use crate::internal::IowkitError;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Pipe, Report, ReportId, UsedPin};
-use crate::iowarrior::{IOWarriorType, Peripheral, PeripheralSetupError};
+use crate::iowarrior::{
+    IOWarriorData, IOWarriorMutData, IOWarriorType, Peripheral, PeripheralSetupError, Pipe,
+    ReportId, UsedPin,
+};
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMData};
 use crate::spi::{IOWarriorSPIType, SPIData, SPIMode};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
-
-static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
-
-pub fn create_report(data: &IOWarriorData, pipe: Pipe) -> Report {
-    Report {
-        buffer: match pipe {
-            Pipe::IOPins => {
-                vec![0u8; data.standard_report_size]
-            }
-
-            Pipe::SpecialMode | Pipe::I2CMode | Pipe::ADCMode => {
-                vec![0u8; data.special_report_size]
-            }
-        },
-        pipe,
-    }
-}
-
-pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), IowkitError> {
-    let written_bytes = unsafe {
-        data.iowkit_data.iowkit.IowKitWrite(
-            data.device_handle,
-            report.pipe.get_value() as iowkit_sys::ULONG,
-            report.buffer.as_ptr() as iowkit_sys::PCHAR,
-            report.buffer.len() as iowkit_sys::ULONG,
-        )
-    } as usize;
-
-    if written_bytes != report.buffer.len() {
-        return Err(IowkitError::IOErrorUSB);
-    }
-
-    Ok(())
-}
-
-pub fn read_report_non_blocking(data: &IOWarriorData, pipe: Pipe) -> Option<Report> {
-    let mut report = create_report(&data, pipe);
-
-    let read_bytes = unsafe {
-        data.iowkit_data.iowkit.IowKitReadNonBlocking(
-            data.device_handle,
-            report.pipe.get_value() as iowkit_sys::ULONG,
-            report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
-            report.buffer.len() as iowkit_sys::ULONG,
-        )
-    } as usize;
-
-    if read_bytes != report.buffer.len() {
-        return None;
-    }
-
-    Some(report)
-}
-
-pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, IowkitError> {
-    let mut report = create_report(&data, pipe);
-
-    let read_bytes = unsafe {
-        data.iowkit_data.iowkit.IowKitRead(
-            data.device_handle,
-            report.pipe.get_value() as iowkit_sys::ULONG,
-            report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
-            report.buffer.len() as iowkit_sys::ULONG,
-        )
-    } as usize;
-
-    if read_bytes != report.buffer.len() {
-        return Err(IowkitError::IOErrorUSB);
-    }
-
-    Ok(report)
-}
 
 pub fn get_used_pins(
     mut_data: &mut RefMut<IOWarriorMutData>,
@@ -172,7 +102,7 @@ fn post_enable(
     mut_data: &mut RefMut<IOWarriorMutData>,
     peripheral_pins: &Vec<u8>,
     peripheral: Peripheral,
-    enable_result: Result<(), IowkitError>,
+    enable_result: Result<(), CommunicationError>,
 ) -> Result<(), PeripheralSetupError> {
     match enable_result {
         Ok(_) => {
@@ -187,7 +117,7 @@ fn post_enable(
         }
         Err(error) => {
             return match error {
-                IowkitError::IOErrorUSB => Err(PeripheralSetupError::IOErrorUSB),
+                CommunicationError::IOErrorUSB => Err(PeripheralSetupError::IOErrorUSB),
             }
         }
     }
@@ -278,7 +208,7 @@ pub fn enable_gpio(
             Ok(())
         }
         Err(error) => Err(match error {
-            IowkitError::IOErrorUSB => PinSetupError::IOErrorUSB,
+            CommunicationError::IOErrorUSB => PinSetupError::IOErrorUSB,
         }),
     }
 }
@@ -297,7 +227,7 @@ pub fn set_pin_output(
     mut_data: &mut RefMut<IOWarriorMutData>,
     pin_state: PinState,
     pin: u8,
-) -> Result<(), IowkitError> {
+) -> Result<(), CommunicationError> {
     let byte_index = ((pin as usize) / 8usize) + 1;
     let bit_index = Bit::from_u8(pin % 8u8);
 
@@ -305,7 +235,7 @@ pub fn set_pin_output(
 
     pins_write_report.buffer[byte_index].set_bit(bit_index, bool::from(pin_state));
 
-    match write_report(&data, &pins_write_report) {
+    match iowkit_service::write_report(&data, &pins_write_report) {
         Ok(_) => {
             mut_data.pins_write_report = pins_write_report;
             Ok(())
@@ -314,8 +244,8 @@ pub fn set_pin_output(
     }
 }
 
-fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), IowkitError> {
-    let mut report = create_report(&data, data.i2c_pipe);
+fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), CommunicationError> {
+    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x01;
@@ -374,11 +304,11 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), Iowki
         }
     }
 
-    write_report(&data, &mut report)
+    iowkit_service::write_report(&data, &mut report)
 }
 
-fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), IowkitError> {
-    let mut report = create_report(&data, data.i2c_pipe);
+fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), CommunicationError> {
+    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x01;
@@ -397,21 +327,21 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), I
         | IOWarriorType::IOWarrior28L => {}
     }
 
-    write_report(&data, &mut report)
+    iowkit_service::write_report(&data, &mut report)
 }
 
-fn send_disable_i2c(data: &IOWarriorData) -> Result<(), IowkitError> {
-    let mut report = create_report(&data, data.i2c_pipe);
+fn send_disable_i2c(data: &IOWarriorData) -> Result<(), CommunicationError> {
+    let mut report = iowkit_service::create_report(&data, data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x00;
 
-    write_report(&data, &mut report)
+    iowkit_service::write_report(&data, &mut report)
 }
 
-pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), IowkitError> {
+pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), CommunicationError> {
     {
-        let mut report = create_report(&data, Pipe::SpecialMode);
+        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmSetup.get_value();
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
@@ -421,11 +351,11 @@ pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), I
             write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
         }
 
-        write_report(&data, &mut report)?;
+        iowkit_service::write_report(&data, &mut report)?;
     }
 
     if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
-        let mut report = create_report(&data, Pipe::SpecialMode);
+        let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmParameters.get_value();
         report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
@@ -438,7 +368,7 @@ pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), I
         write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
         write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
 
-        write_report(&data, &mut report)?;
+        iowkit_service::write_report(&data, &mut report)?;
     }
 
     Ok(())
@@ -474,20 +404,20 @@ fn write_u16(bytes: &mut [u8], value: u16) {
     bytes[1] = (value >> 8) as u8; // MSB
 }
 
-fn send_disable_pwm(data: &IOWarriorData) -> Result<(), IowkitError> {
-    let mut report = create_report(&data, Pipe::SpecialMode);
+fn send_disable_pwm(data: &IOWarriorData) -> Result<(), CommunicationError> {
+    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::PwmSetup.get_value();
     report.buffer[1] = 0x00;
 
-    write_report(&data, &mut report)
+    iowkit_service::write_report(&data, &mut report)
 }
 
-fn send_disable_spi(data: &IOWarriorData) -> Result<(), IowkitError> {
-    let mut report = create_report(&data, Pipe::SpecialMode);
+fn send_disable_spi(data: &IOWarriorData) -> Result<(), CommunicationError> {
+    let mut report = iowkit_service::create_report(&data, Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x00;
 
-    write_report(&data, &mut report)
+    iowkit_service::write_report(&data, &mut report)
 }

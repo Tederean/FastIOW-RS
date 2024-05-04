@@ -1,4 +1,4 @@
-use crate::internal::IowkitData;
+use crate::communication::CommunicationData;
 use crate::iowarrior::IOWarriorType;
 use crate::iowarrior::Pipe;
 use std::fmt;
@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct IOWarriorData {
-    pub iowkit_data: Arc<IowkitData>,
+    pub iowkit_data: Arc<CommunicationData>,
     pub device_handle: iowkit_sys::IOWKIT_HANDLE,
     pub device_revision: u64,
     pub device_serial: Option<String>,

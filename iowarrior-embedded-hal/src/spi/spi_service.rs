@@ -1,6 +1,6 @@
 use crate::bits::Bit::{Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::internal::{iowkit_service, IowkitError};
+use crate::communication::{iowkit_service, CommunicationError};
 use crate::iowarrior::{IOWarriorData, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::{SPIConfig, SPIError};
@@ -269,7 +269,7 @@ fn write_report(
         .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
     iowkit_service::write_report(&data, &report).map_err(|error| match error {
-        IowkitError::IOErrorUSB => SPIError::IOErrorUSB,
+        CommunicationError::IOErrorUSB => SPIError::IOErrorUSB,
     })
 }
 
@@ -292,7 +292,7 @@ fn read_report(
         }
         Err(error) => {
             return match error {
-                IowkitError::IOErrorUSB => Err(SPIError::IOErrorUSB),
+                CommunicationError::IOErrorUSB => Err(SPIError::IOErrorUSB),
             }
         }
     }
