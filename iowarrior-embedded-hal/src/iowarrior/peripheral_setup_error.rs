@@ -1,11 +1,12 @@
+use hidapi::HidError;
 use crate::iowarrior::Peripheral;
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Error, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Error, Debug)]
 pub enum PeripheralSetupError {
-    #[error("USB input output error.")]
-    IOErrorUSB,
+    #[error("USB HID error.")]
+    ErrorUSB(HidError),
     #[error("Hardware is already set up.")]
     AlreadySetup,
     #[error("Required hardware is blocked by other peripheral {0}.")]

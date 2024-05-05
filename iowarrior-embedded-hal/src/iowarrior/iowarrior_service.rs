@@ -1,14 +1,15 @@
-use crate::communication::{communication_service, CommunicationData, CommunicationError};
+use crate::communication::{communication_service, CommunicationData};
 use crate::iowarrior::{
     IOWarrior, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, Report, ReportId,
 };
 use crate::pin;
 use std::cell::RefCell;
 use std::rc::Rc;
+use hidapi::HidError;
 
 pub fn create_iowarrior(
     communication_data: CommunicationData,
-) -> Result<IOWarrior, CommunicationError> {
+) -> Result<IOWarrior, HidError> {
     let mut device_data = IOWarriorData {
         i2c_pipe: get_i2c_pipe(communication_data.device_type),
         i2c_pins: get_i2c_pins(communication_data.device_type),
@@ -132,7 +133,7 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
     }
 }
 
-fn get_pins_report(data: &IOWarriorData) -> Result<Report, CommunicationError> {
+fn get_pins_report(data: &IOWarriorData) -> Result<Report, HidError> {
     {
         let mut report = data.create_report(Pipe::SpecialMode);
 

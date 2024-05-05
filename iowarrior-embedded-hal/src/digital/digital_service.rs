@@ -1,6 +1,6 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service, CommunicationError};
+use crate::communication::{communication_service};
 use crate::digital::PinError;
 use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Pipe};
 use embedded_hal::digital::PinState;
@@ -13,9 +13,7 @@ pub fn is_pin_input_state(
     pin: u8,
     expected_pin_state: PinState,
 ) -> Result<bool, PinError> {
-    let report = communication_service::read_report_non_blocking(&data, Pipe::IOPins).map_err(|x| match  x {
-        CommunicationError::IOErrorUSB => PinError::IOErrorUSB
-    })?;
+    let report = communication_service::read_report_non_blocking(&data, Pipe::IOPins).map_err(|x| PinError::ErrorUSB(x))?;
 
     match report {
         None => {}
@@ -41,11 +39,7 @@ pub fn set_pin_output_state(
     pin: u8,
     pin_state: PinState,
 ) -> Result<(), PinError> {
-    peripheral_service::set_pin_output(data, mut_data, pin_state, pin).map_err(
-        |error| match error {
-            CommunicationError::IOErrorUSB => PinError::IOErrorUSB,
-        },
-    )
+    peripheral_service::set_pin_output(data, mut_data, pin_state, pin).map_err(|x| PinError::ErrorUSB(x))
 }
 
 pub fn is_pin_output_state(

@@ -33,8 +33,8 @@ mod iowkit {
     pub struct CommunicationData {
         pub iowkit_data: std::sync::Arc<IowkitData>,
         pub device_handle: iowkit_sys::IOWKIT_HANDLE,
-        pub device_revision: u64,
-        pub device_serial: Option<String>,
+        pub device_revision: u16,
+        pub device_serial: String,
         pub device_type: IOWarriorType,
     }
 }
@@ -72,9 +72,10 @@ mod usbhid {
 
     #[derive(Debug)]
     pub struct CommunicationData {
+        //pub usb_hid_api: Arc<HidApi>,
         pub usb_pipes: USBPipes,
-        pub device_revision: u64,
-        pub device_serial: Option<String>,
+        pub device_revision: u16,
+        pub device_serial: String,
         pub device_type: IOWarriorType,
     }
 }

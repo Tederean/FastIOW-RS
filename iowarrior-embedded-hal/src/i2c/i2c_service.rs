@@ -1,6 +1,6 @@
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service, CommunicationError};
+use crate::communication::{communication_service};
 use crate::i2c::I2CError;
 use crate::iowarrior::IOWarriorType;
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
@@ -101,41 +101,32 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
 }
 
 fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), I2CError> {
-    communication_service::write_report(data, &report).map_err(|error| match error {
-        CommunicationError::IOErrorUSB => I2CError::IOErrorUSB,
-    })
+    communication_service::write_report(data, &report).map_err(|x| I2CError::ErrorUSB(x))
 }
 
 fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CError> {
-    match communication_service::read_report(data, data.i2c_pipe) {
-        Ok(report) => {
-            assert_eq!(report.buffer[0], report_id.get_value());
+    let report =  communication_service::read_report(data, data.i2c_pipe).map_err(|x| I2CError::ErrorUSB(x))?;
 
-            if report.buffer[1].get_bit(Bit7) {
-                return Err(I2CError::IOErrorI2C);
-            }
+    assert_eq!(report.buffer[0], report_id.get_value());
 
-            match data.communication_data.device_type {
-                IOWarriorType::IOWarrior28
-                | IOWarriorType::IOWarrior28Dongle
-                | IOWarriorType::IOWarrior56
-                | IOWarriorType::IOWarrior56Dongle => {
-                    if report.buffer[1].get_bit(Bit7) {
-                        return Err(I2CError::IOErrorI2CArbitrationLoss);
-                    }
-                }
-                IOWarriorType::IOWarrior40
-                | IOWarriorType::IOWarrior24
-                | IOWarriorType::IOWarrior28L
-                | IOWarriorType::IOWarrior100 => {}
-            }
-
-            Ok(report)
-        }
-        Err(error) => {
-            return match error {
-                CommunicationError::IOErrorUSB => Err(I2CError::IOErrorUSB),
-            }
-        }
+    if report.buffer[1].get_bit(Bit7) {
+        return Err(I2CError::IOErrorI2C);
     }
+
+    match data.communication_data.device_type {
+        IOWarriorType::IOWarrior28
+        | IOWarriorType::IOWarrior28Dongle
+        | IOWarriorType::IOWarrior56
+        | IOWarriorType::IOWarrior56Dongle => {
+            if report.buffer[1].get_bit(Bit7) {
+                return Err(I2CError::IOErrorI2CArbitrationLoss);
+            }
+        }
+        IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior28L
+        | IOWarriorType::IOWarrior100 => {}
+    }
+
+    Ok(report)
 }

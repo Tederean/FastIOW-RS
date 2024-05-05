@@ -1,17 +1,18 @@
 use embedded_hal::pwm::ErrorKind;
+use hidapi::HidError;
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Error, Debug)]
 pub enum PWMError {
-    #[error("USB input output error.")]
-    IOErrorUSB,
+    #[error("USB HID error.")]
+    ErrorUSB(HidError),
 }
 
 impl embedded_hal::pwm::Error for PWMError {
     fn kind(&self) -> ErrorKind {
         match self {
-            PWMError::IOErrorUSB => ErrorKind::Other,
+            PWMError::ErrorUSB(_) => ErrorKind::Other,
         }
     }
 }

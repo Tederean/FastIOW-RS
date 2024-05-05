@@ -1,7 +1,7 @@
 use crate::bits::Bit;
 use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service, CommunicationError};
+use crate::communication::{communication_service};
 use crate::digital::PinSetupError;
 use crate::i2c::I2CConfig;
 use crate::iowarrior::{
@@ -12,6 +12,7 @@ use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMData};
 use crate::spi::{IOWarriorSPIType, SPIData, SPIMode};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
+use hidapi::HidError;
 
 pub fn get_used_pins(
     mut_data: &mut RefMut<IOWarriorMutData>,
@@ -79,10 +80,7 @@ fn precheck_peripheral(
         Some(_) => return Err(PeripheralSetupError::AlreadySetup),
     }
 
-    match cleanup_dangling_modules(&data, mut_data) {
-        true => {}
-        false => return Err(PeripheralSetupError::IOErrorUSB),
-    }
+    cleanup_dangling_modules(&data, mut_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
     let pin_conflicts: Vec<_> = mut_data
         .pins_in_use
@@ -102,25 +100,18 @@ fn post_enable(
     mut_data: &mut RefMut<IOWarriorMutData>,
     peripheral_pins: &Vec<u8>,
     peripheral: Peripheral,
-    enable_result: Result<(), CommunicationError>,
+    enable_result: Result<(), HidError>,
 ) -> Result<(), PeripheralSetupError> {
-    match enable_result {
-        Ok(_) => {
-            mut_data
-                .pins_in_use
-                .extend(peripheral_pins.iter().map(|pin| UsedPin {
-                    peripheral: Some(peripheral),
-                    pin: pin.clone(),
-                }));
+    enable_result.map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
-            Ok(())
-        }
-        Err(error) => {
-            return match error {
-                CommunicationError::IOErrorUSB => Err(PeripheralSetupError::IOErrorUSB),
-            }
-        }
-    }
+    mut_data
+        .pins_in_use
+        .extend(peripheral_pins.iter().map(|pin| UsedPin {
+            peripheral: Some(peripheral),
+            pin: pin.clone(),
+        }));
+
+    Ok(())
 }
 
 pub fn disable_peripheral(
@@ -144,27 +135,20 @@ pub fn disable_peripheral(
     }
 }
 
-fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarriorMutData>) -> bool {
+fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarriorMutData>) -> Result<(), HidError> {
     if !mut_data.dangling_peripherals.is_empty() {
         for x in mut_data.dangling_peripherals.to_vec() {
             match x {
-                Peripheral::I2C => match send_disable_i2c(&data) {
-                    Ok(_) => mut_data.dangling_peripherals.retain(|y| *y != x),
-                    Err(_) => {}
-                },
-                Peripheral::PWM => match send_disable_pwm(&data) {
-                    Ok(_) => mut_data.dangling_peripherals.retain(|y| *y != x),
-                    Err(_) => {}
-                },
-                Peripheral::SPI => match send_disable_spi(&data) {
-                    Ok(_) => mut_data.dangling_peripherals.retain(|y| *y != x),
-                    Err(_) => {}
-                },
-            }
+                Peripheral::I2C => send_disable_i2c(&data),
+                Peripheral::PWM => send_disable_pwm(&data),
+                Peripheral::SPI => send_disable_spi(&data),
+            }?;
+
+            mut_data.dangling_peripherals.retain(|y| *y != x);
         }
     }
 
-    mut_data.dangling_peripherals.is_empty()
+    Ok(())
 }
 
 pub fn enable_gpio(
@@ -193,24 +177,16 @@ pub fn enable_gpio(
         }
     }
 
-    match cleanup_dangling_modules(&data, mut_data) {
-        true => {}
-        false => return Err(PinSetupError::IOErrorUSB),
-    }
+    cleanup_dangling_modules(&data, mut_data).map_err(|x| PinSetupError::ErrorUSB(x))?;
 
-    match set_pin_output(&data, mut_data, pin_state, pin) {
-        Ok(_) => {
-            mut_data.pins_in_use.push(UsedPin {
-                pin,
-                peripheral: None,
-            });
+    set_pin_output(&data, mut_data, pin_state, pin).map_err(|x| PinSetupError::ErrorUSB(x))?;
 
-            Ok(())
-        }
-        Err(error) => Err(match error {
-            CommunicationError::IOErrorUSB => PinSetupError::IOErrorUSB,
-        }),
-    }
+    mut_data.pins_in_use.push(UsedPin {
+        pin,
+        peripheral: None,
+    });
+
+    Ok(())
 }
 
 pub fn disable_gpio(data: &IOWarriorData, mut_data: &mut RefMut<IOWarriorMutData>, pin: u8) {
@@ -227,7 +203,7 @@ pub fn set_pin_output(
     mut_data: &mut RefMut<IOWarriorMutData>,
     pin_state: PinState,
     pin: u8,
-) -> Result<(), CommunicationError> {
+) -> Result<(), HidError> {
     let byte_index = ((pin as usize) / 8usize) + 1;
     let bit_index = Bit::from_u8(pin % 8u8);
 
@@ -244,7 +220,7 @@ pub fn set_pin_output(
     }
 }
 
-fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), CommunicationError> {
+fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
@@ -307,7 +283,7 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), Commu
     communication_service::write_report(&data, &mut report)
 }
 
-fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), CommunicationError> {
+fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), HidError> {
     let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
@@ -330,7 +306,7 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), C
     communication_service::write_report(&data, &mut report)
 }
 
-fn send_disable_i2c(data: &IOWarriorData) -> Result<(), CommunicationError> {
+fn send_disable_i2c(data: &IOWarriorData) -> Result<(), HidError> {
     let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
@@ -339,7 +315,7 @@ fn send_disable_i2c(data: &IOWarriorData) -> Result<(), CommunicationError> {
     communication_service::write_report(&data, &mut report)
 }
 
-pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), CommunicationError> {
+pub fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidError> {
     {
         let mut report = data.create_report(Pipe::SpecialMode);
 
@@ -404,7 +380,7 @@ fn write_u16(bytes: &mut [u8], value: u16) {
     bytes[1] = (value >> 8) as u8; // MSB
 }
 
-fn send_disable_pwm(data: &IOWarriorData) -> Result<(), CommunicationError> {
+fn send_disable_pwm(data: &IOWarriorData) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::PwmSetup.get_value();
@@ -413,7 +389,7 @@ fn send_disable_pwm(data: &IOWarriorData) -> Result<(), CommunicationError> {
     communication_service::write_report(&data, &mut report)
 }
 
-fn send_disable_spi(data: &IOWarriorData) -> Result<(), CommunicationError> {
+fn send_disable_spi(data: &IOWarriorData) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();

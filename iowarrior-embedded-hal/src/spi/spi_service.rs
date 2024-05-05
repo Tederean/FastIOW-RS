@@ -1,6 +1,6 @@
 use crate::bits::Bit::{Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service, CommunicationError};
+use crate::communication::{communication_service};
 use crate::iowarrior::{IOWarriorData, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::{SPIConfig, SPIError};
@@ -268,9 +268,7 @@ fn write_report(
         .buffer
         .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
-    communication_service::write_report(&data, &report).map_err(|error| match error {
-        CommunicationError::IOErrorUSB => SPIError::IOErrorUSB,
-    })
+    communication_service::write_report(&data, &report).map_err(|x| SPIError::ErrorUSB(x))
 }
 
 fn read_report(
@@ -278,23 +276,16 @@ fn read_report(
     spi_data: &SPIData,
     read_chunk: &mut [u8],
 ) -> Result<(), SPIError> {
-    match communication_service::read_report(&data, Pipe::SpecialMode) {
-        Ok(report) => {
-            assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
+    let report = communication_service::read_report(&data, Pipe::SpecialMode).map_err(|x| SPIError::ErrorUSB(x))?;
 
-            match read_chunk.len() as u8 == report.buffer[1] {
-                true => {
-                    read_chunk.copy_from_slice(&report.buffer[1..(read_chunk.len() + 1)]);
-                    Ok(())
-                }
-                false => Err(SPIError::IOErrorSPI),
-            }
+    assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
+
+    match read_chunk.len() as u8 == report.buffer[1] {
+        true => {
+            read_chunk.copy_from_slice(&report.buffer[1..(read_chunk.len() + 1)]);
+            Ok(())
         }
-        Err(error) => {
-            return match error {
-                CommunicationError::IOErrorUSB => Err(SPIError::IOErrorUSB),
-            }
-        }
+        false => Err(SPIError::IOErrorSPI),
     }
 }
 

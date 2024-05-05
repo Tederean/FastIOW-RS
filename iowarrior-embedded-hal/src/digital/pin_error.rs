@@ -1,17 +1,18 @@
 use embedded_hal::digital::ErrorKind;
+use hidapi::HidError;
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Error, Debug)]
 pub enum PinError {
-    #[error("USB input output error.")]
-    IOErrorUSB,
+    #[error("USB HID error.")]
+    ErrorUSB(HidError),
 }
 
 impl embedded_hal::digital::Error for PinError {
     fn kind(&self) -> ErrorKind {
         match self {
-            PinError::IOErrorUSB => ErrorKind::Other,
+            PinError::ErrorUSB(_) => ErrorKind::Other,
         }
     }
 }

@@ -35,7 +35,7 @@ fn mcp() -> Result<()> {
             "Type: {0} Rev: {1} SN: {2}",
             iowarrior.get_type(),
             iowarrior.get_revision(),
-            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+            iowarrior.get_serial_number(),
         );
 
         let mut spi = iowarrior.setup_spi()?;
@@ -80,7 +80,7 @@ fn sdcard() -> Result<()> {
             "Type: {0} Rev: {1} SN: {2}",
             iowarrior.get_type(),
             iowarrior.get_revision(),
-            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+            iowarrior.get_serial_number(),
         );
 
         let spi_config = SPIConfig {
@@ -139,7 +139,7 @@ fn ssd1306() -> Result<()> {
             "Type: {0} Rev: {1} SN: {2}",
             iowarrior.get_type(),
             iowarrior.get_revision(),
-            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+            iowarrior.get_serial_number(),
         );
 
         let i2c = iowarrior.setup_i2c()?;
@@ -196,7 +196,7 @@ fn bh1750() -> Result<()> {
             "Type: {0} Rev: {1} SN: {2}",
             iowarrior.get_type(),
             iowarrior.get_revision(),
-            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+            iowarrior.get_serial_number(),
         );
 
         let mut i2c = iowarrior.setup_i2c()?;
@@ -225,7 +225,7 @@ fn bmp280() -> Result<()> {
             "Type: {0} Rev: {1} SN: {2}",
             iowarrior.get_type(),
             iowarrior.get_revision(),
-            iowarrior.get_serial_number().unwrap_or("?".to_string()),
+            iowarrior.get_serial_number(),
         );
 
         let i2c = iowarrior.setup_i2c()?;

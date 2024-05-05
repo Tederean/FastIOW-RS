@@ -1,11 +1,12 @@
+use hidapi::HidError;
 use crate::iowarrior::Peripheral;
 use thiserror::Error;
 
 #[non_exhaustive]
-#[derive(Error, Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Error, Debug)]
 pub enum PinSetupError {
-    #[error("USB input output error.")]
-    IOErrorUSB,
+    #[error("USB HID error.")]
+    ErrorUSB(HidError),
     #[error("Pin not existing.")]
     PinNotExisting,
     #[error("Pin already configured.")]
