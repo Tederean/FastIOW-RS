@@ -243,19 +243,16 @@ mod usbhid {
     }
 
     pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
-        let buffer_offset = match report.pipe {
-            Pipe::IOPins => 1usize,
-            _ => 0usize,
-        };
-
         let usb_device = pipe_to_usb_device(&data.communication_data, report.pipe);
-        let slice = &report.buffer[buffer_offset..];
 
-        let bytes_written = usb_device.write(slice)?;
+        let bytes_written = usb_device.write(report.buffer.as_slice())?;
 
-        //if bytes_written + buffer_offset - 1 != report.buffer.len() {
-        //    return Err(CommunicationError::IOErrorUSB);
-        //}
+        if bytes_written != report.buffer.len() {
+            return Err(HidError::IncompleteSendError {
+                sent: bytes_written,
+                all: report.buffer.len(),
+            });
+        }
 
         Ok(())
     }
@@ -266,19 +263,18 @@ mod usbhid {
     ) -> Result<Option<Report>, HidError> {
         let mut report = data.create_report(pipe);
 
-        let buffer_offset = match pipe {
-            Pipe::IOPins => 1usize,
-            _ => 0usize,
-        };
-
         let usb_device = pipe_to_usb_device(&data.communication_data, report.pipe);
-        let slice = &mut report.buffer[buffer_offset..];
 
-        let bytes_read = usb_device.read_timeout(slice, 0)?;
+        usb_device.set_blocking_mode(false)?;
 
-        //if bytes_read + buffer_offset != report.buffer.len() {
-        //    return Ok(None)
-        //}
+        let bytes_read = usb_device.read(report.buffer.as_mut_slice())?;
+
+        if bytes_read > 0 && bytes_read != report.buffer.len() {
+            return Err(HidError::IncompleteSendError {
+                sent: bytes_read,
+                all: report.buffer.len(),
+            });
+        }
 
         Ok(match bytes_read > 0 {
             true => Some(report),
@@ -289,19 +285,18 @@ mod usbhid {
     pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, HidError> {
         let mut report = data.create_report(pipe);
 
-        let buffer_offset = match pipe {
-            Pipe::IOPins => 1usize,
-            _ => 0usize,
-        };
-
         let usb_device = pipe_to_usb_device(&data.communication_data, report.pipe);
-        let slice = &mut report.buffer[buffer_offset..];
 
-        let bytes_read = usb_device.read(slice)?;
+        usb_device.set_blocking_mode(true)?;
 
-        //if bytes_read + buffer_offset != report.buffer.len() {
-        //    return Err(CommunicationError::IOErrorUSB);
-        //}
+        let bytes_read = usb_device.read(report.buffer.as_mut_slice())?;
+
+        if bytes_read != report.buffer.len() {
+            return Err(HidError::IncompleteSendError {
+                sent: bytes_read,
+                all: report.buffer.len(),
+            });
+        }
 
         Ok(report)
     }
