@@ -1,11 +1,48 @@
+use std::cell::RefMut;
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
 use crate::communication::{communication_service};
-use crate::i2c::I2CError;
-use crate::iowarrior::IOWarriorType;
+use crate::i2c::{I2CConfig, I2CError};
+use crate::iowarrior::{IOWarriorMutData, IOWarriorType, Peripheral, peripheral_service, PeripheralSetupError};
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
 use std::iter;
 use std::rc::Rc;
+use hidapi::HidError;
+
+pub fn enable_i2c(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    i2c_config: I2CConfig,
+) -> Result<(), PeripheralSetupError> {
+    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
+
+    let result = send_enable_i2c(&data, &i2c_config);
+
+    peripheral_service::post_enable(mut_data, &data.i2c_pins, Peripheral::I2C, result)
+}
+
+fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), HidError> {
+    let mut report = data.create_report(data.i2c_pipe);
+
+    report.buffer[0] = ReportId::I2cSetup.get_value();
+    report.buffer[1] = 0x01;
+
+    match data.communication_data.device_type {
+        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
+            report.buffer[2] = i2c_config.iow56_clock.get_value();
+        }
+        IOWarriorType::IOWarrior100 => {
+            report.buffer[2] = i2c_config.iow100_speed.get_value();
+        }
+        IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior28
+        | IOWarriorType::IOWarrior28Dongle
+        | IOWarriorType::IOWarrior28L => {}
+    }
+
+    communication_service::write_report(&data, &mut report)
+}
 
 pub fn check_valid_7bit_address(address: u8) -> Result<(), I2CError> {
     if address > 127 {

@@ -1,7 +1,89 @@
-use crate::iowarrior::IOWarriorData;
+use std::cell::RefMut;
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, peripheral_service, PeripheralSetupError, Pipe, ReportId};
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
 use crate::{iowarrior::IOWarriorType, pin};
 use std::rc::Rc;
+use hidapi::HidError;
+use crate::communication::communication_service;
+
+pub fn enable_pwm(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pwm_data: &PWMData,
+    pwm_pins: &Vec<u8>,
+) -> Result<(), PeripheralSetupError> {
+    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
+
+    let result = send_enable_pwm(&data, pwm_data);
+
+    peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM, result)
+}
+
+
+fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidError> {
+    {
+        let mut report = data.create_report(Pipe::SpecialMode);
+
+        report.buffer[0] = ReportId::PwmSetup.get_value();
+        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+
+        if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior56 {
+            write_iow56_pwm_channel(&mut report.buffer[2..7], &pwm_data, ChannelMode::Single);
+            write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
+        }
+
+        communication_service::write_report(&data, &mut report)?;
+    }
+
+    if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
+        let mut report = data.create_report(Pipe::SpecialMode);
+
+        report.buffer[0] = ReportId::PwmParameters.get_value();
+        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+
+        write_u16(&mut report.buffer[2..4], pwm_data.iow100_prescaler);
+        write_u16(&mut report.buffer[4..6], pwm_data.iow100_cycle);
+
+        write_iow100_pwm_channel(&mut report.buffer[6..8], &pwm_data, ChannelMode::Single);
+        write_iow100_pwm_channel(&mut report.buffer[8..10], &pwm_data, ChannelMode::Dual);
+        write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
+        write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
+
+        communication_service::write_report(&data, &mut report)?;
+    }
+
+    Ok(())
+}
+
+fn write_iow100_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
+    let iow100_ch_register = match channel {
+        ChannelMode::Single => pwm_data.duty_cycle_0,
+        ChannelMode::Dual => pwm_data.duty_cycle_1,
+        ChannelMode::Triple => pwm_data.duty_cycle_2,
+        ChannelMode::Quad => pwm_data.duty_cycle_3,
+    };
+
+    write_u16(&mut bytes[0..2], iow100_ch_register);
+}
+
+fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
+    let iow56_pls_register = match channel {
+        ChannelMode::Single => pwm_data.duty_cycle_0,
+        ChannelMode::Dual => pwm_data.duty_cycle_1,
+        ChannelMode::Triple => pwm_data.duty_cycle_2,
+        ChannelMode::Quad => pwm_data.duty_cycle_3,
+    };
+
+    write_u16(&mut bytes[0..2], pwm_data.iow56_per);
+    write_u16(&mut bytes[2..4], iow56_pls_register);
+    bytes[4] = pwm_data.iow56_clock_source;
+}
+
+#[inline]
+fn write_u16(bytes: &mut [u8], value: u16) {
+    bytes[0] = (value & 0xFF) as u8; // LSB
+    bytes[1] = (value >> 8) as u8; // MSB
+}
 
 pub fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
     let mut data = PWMData {

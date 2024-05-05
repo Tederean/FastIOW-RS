@@ -106,7 +106,7 @@ impl I2C {
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         i2c_config: I2CConfig,
     ) -> Result<I2C, PeripheralSetupError> {
-        peripheral_service::enable_i2c(&data, &mut mut_data_refcell.borrow_mut(), i2c_config)?;
+        i2c_service::enable_i2c(&data, &mut mut_data_refcell.borrow_mut(), i2c_config)?;
 
         Ok(I2C {
             data: data.clone(),

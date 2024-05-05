@@ -1,13 +1,91 @@
-use crate::bits::Bit::{Bit6, Bit7};
+use std::cell::RefMut;
+use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit6, Bit7};
 use crate::bits::Bitmasking;
 use crate::communication::{communication_service};
-use crate::iowarrior::{IOWarriorData, Pipe, Report, ReportId};
+use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, peripheral_service, PeripheralSetupError, Pipe, Report, ReportId};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
-use crate::spi::{SPIConfig, SPIError};
+use crate::spi::{SPIConfig, SPIError, SPIMode};
 use crate::{iowarrior::IOWarriorType, pin};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
+use hidapi::HidError;
+
+pub fn enable_spi(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    spi_data: &SPIData,
+    spi_pins: &Vec<u8>,
+) -> Result<(), PeripheralSetupError> {
+    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::SPI, &spi_pins)?;
+
+    let result = send_enable_spi(&data, &spi_data);
+
+    peripheral_service::post_enable(mut_data, &spi_pins, Peripheral::SPI, result)
+}
+
+fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), HidError> {
+    let mut report = data.create_report(Pipe::SpecialMode);
+
+    report.buffer[0] = ReportId::SpiSetup.get_value();
+    report.buffer[1] = 0x01;
+
+    match spi_data.spi_type {
+        IOWarriorSPIType::IOWarrior24 => {
+            report.buffer[2] = {
+                let mut mode = spi_data.iow24_mode;
+
+                mode.set_bit(
+                    Bit2,
+                    match spi_data.spi_config.mode {
+                        // Yeah, CPHA is indeed inverted here...
+                        SPIMode::Mode0 | SPIMode::Mode2 => true, // CPHA 0
+                        SPIMode::Mode1 | SPIMode::Mode3 => false, // CPHA 1
+                    },
+                );
+
+                mode.set_bit(
+                    Bit3,
+                    match spi_data.spi_config.mode {
+                        SPIMode::Mode0 | SPIMode::Mode1 => false, // CPOL 0
+                        SPIMode::Mode2 | SPIMode::Mode3 => true,  // CPOL 1
+                    },
+                );
+
+                mode
+            };
+        }
+        IOWarriorSPIType::IOWarrior56 => {
+            report.buffer[2] = {
+                let mut mode = spi_data.iow24_mode;
+
+                mode.set_bit(
+                    Bit2,
+                    match spi_data.spi_config.mode {
+                        SPIMode::Mode0 | SPIMode::Mode2 => false, // CPHA 0
+                        SPIMode::Mode1 | SPIMode::Mode3 => true,  // CPHA 1
+                    },
+                );
+
+                mode.set_bit(
+                    Bit1,
+                    match spi_data.spi_config.mode {
+                        SPIMode::Mode0 | SPIMode::Mode1 => false, // CPOL 0
+                        SPIMode::Mode2 | SPIMode::Mode3 => true,  // CPOL 1
+                    },
+                );
+
+                mode.set_bit(Bit7, false); // MSB first
+
+                mode
+            };
+
+            report.buffer[3] = spi_data.iow56_clock_divider;
+        }
+    }
+
+    communication_service::write_report(&data, &mut report)
+}
 
 pub fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
     let mut data = SPIData {

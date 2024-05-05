@@ -16,7 +16,7 @@ iowkit-sys = { path = "../iowkit-sys", optional = true }
 static_assertions = { version = "1.1", optional = true }
 
 [features]
-default = ["iowkit"]
+default = ["usbhid"]
 embedded-hal-0 = ["dep:embedded-hal-0"]
 iowkit = ["dep:libloading", "dep:iowkit-sys", "dep:static_assertions"]
 usbhid = ["dep:itertools"]

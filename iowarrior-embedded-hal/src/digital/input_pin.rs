@@ -88,7 +88,7 @@ impl InputPin {
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
         pin: u8,
     ) -> Result<InputPin, PinSetupError> {
-        peripheral_service::enable_gpio(
+        digital_service::enable_gpio(
             &data,
             &mut mut_data_refcell.borrow_mut(),
             PinState::High,

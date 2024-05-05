@@ -133,7 +133,7 @@ impl OutputPin {
         pin: u8,
         initial_pin_state: PinState,
     ) -> Result<OutputPin, PinSetupError> {
-        peripheral_service::enable_gpio(
+        digital_service::enable_gpio(
             &data,
             &mut mut_data_refcell.borrow_mut(),
             initial_pin_state,

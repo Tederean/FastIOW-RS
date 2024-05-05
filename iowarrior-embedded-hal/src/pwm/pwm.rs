@@ -52,7 +52,7 @@ impl PWM {
                 let pwm_pins = pwm_service::get_pwm_pins(pwm_type, pwm_config.channel_mode);
                 let pwm_data = pwm_service::calculate_pwm_data(pwm_type, pwm_config);
 
-                peripheral_service::enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
+                pwm_service::enable_pwm(&data, &mut mut_data, &pwm_data, &pwm_pins)?;
 
                 Ok(PWM {
                     data: data.clone(),

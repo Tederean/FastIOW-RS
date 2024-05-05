@@ -204,7 +204,7 @@ impl SPI {
                 let spi_pins = spi_service::get_spi_pins(spi_type);
                 let spi_data = spi_service::calculate_spi_data(spi_type, spi_config);
 
-                peripheral_service::enable_spi(&data, &mut mut_data, &spi_data, &spi_pins)?;
+                spi_service::enable_spi(&data, &mut mut_data, &spi_data, &spi_pins)?;
 
                 Ok(SPI {
                     data: data.clone(),

@@ -1,11 +1,49 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
 use crate::communication::{communication_service};
-use crate::digital::PinError;
-use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Pipe};
+use crate::digital::{PinError, PinSetupError};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Pipe, IOWarriorType, UsedPin};
 use embedded_hal::digital::PinState;
 use std::cell::RefMut;
 use std::rc::Rc;
+
+pub fn enable_gpio(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pin_state: PinState,
+    pin: u8,
+) -> Result<(), PinSetupError> {
+    if data.communication_data.device_type == IOWarriorType::IOWarrior28Dongle
+        || data.communication_data.device_type == IOWarriorType::IOWarrior56Dongle
+    {
+        return Err(PinSetupError::NotSupported);
+    }
+
+    if !(data.is_valid_gpio)(pin) {
+        return Err(PinSetupError::PinNotExisting);
+    }
+
+    match mut_data.pins_in_use.iter().filter(|x| x.pin == pin).next() {
+        None => {}
+        Some(used_pin) => {
+            return Err(match used_pin.peripheral {
+                None => PinSetupError::AlreadySetup,
+                Some(peripheral) => PinSetupError::BlockedByPeripheral(peripheral),
+            })
+        }
+    }
+
+    peripheral_service::cleanup_dangling_modules(&data, mut_data).map_err(|x| PinSetupError::ErrorUSB(x))?;
+
+    peripheral_service::set_pin_output(&data, mut_data, pin_state, pin).map_err(|x| PinSetupError::ErrorUSB(x))?;
+
+    mut_data.pins_in_use.push(UsedPin {
+        pin,
+        peripheral: None,
+    });
+
+    Ok(())
+}
 
 pub fn is_pin_input_state(
     data: &Rc<IOWarriorData>,
