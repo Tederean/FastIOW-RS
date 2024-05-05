@@ -187,8 +187,13 @@ mod usbhid {
 
             let usb_pipes = get_usb_pipes(&api, &device_infos, device_type)?;
 
+            let device_revision = get_revision(match &usb_pipes {
+                USBPipes::Standard { pipe_0, pipe_1 } => &pipe_0,
+                USBPipes::IOW28 { pipe_0, pipe_1, pipe_2, pipe_3 } => &pipe_0,
+            })?;
+
             let communication_data = CommunicationData {
-                device_revision: u16::MAX, // TODO
+                device_revision,
                 device_serial: String::from(serial_number),
                 device_type,
                 usb_pipes,
@@ -240,6 +245,10 @@ mod usbhid {
                 .open_path(pipe.path())
                 .map_err(|x| InitializationError::ErrorUSB(x)),
         }
+    }
+
+    fn get_revision(pipe_0_device: &HidDevice) -> Result<u16, InitializationError> {
+        Ok(u16::MAX) // TODO
     }
 
     pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
