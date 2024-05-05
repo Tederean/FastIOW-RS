@@ -185,12 +185,9 @@ mod usbhid {
                     Some(x) => x,
                 };
 
-            let usb_pipes = get_usb_pipes(&api, &device_infos, device_type)?;
+            let device_revision = get_revision(&device_infos)?;
 
-            let device_revision = get_revision(match &usb_pipes {
-                USBPipes::Standard { pipe_0, pipe_1 } => &pipe_0,
-                USBPipes::IOW28 { pipe_0, pipe_1, pipe_2, pipe_3 } => &pipe_0,
-            })?;
+            let usb_pipes = get_usb_pipes(&api, &device_infos, device_type)?;
 
             let communication_data = CommunicationData {
                 device_revision,
@@ -214,13 +211,19 @@ mod usbhid {
         device_type: IOWarriorType,
     ) -> Result<USBPipes, InitializationError> {
         Ok(match device_type {
-            IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => USBPipes::IOW28 {
+            IOWarriorType::IOWarrior28
+            | IOWarriorType::IOWarrior28Dongle
+            | IOWarriorType::IOWarrior100 => USBPipes::Extended {
                 pipe_0: get_usb_pipe(api, device_infos, 0)?,
                 pipe_1: get_usb_pipe(api, device_infos, 1)?,
                 pipe_2: get_usb_pipe(api, device_infos, 2)?,
                 pipe_3: get_usb_pipe(api, device_infos, 3)?,
             },
-            _ => USBPipes::Standard {
+            IOWarriorType::IOWarrior40
+            | IOWarriorType::IOWarrior24
+            | IOWarriorType::IOWarrior28L
+            | IOWarriorType::IOWarrior56
+            | IOWarriorType::IOWarrior56Dongle => USBPipes::Standard {
                 pipe_0: get_usb_pipe(api, device_infos, 0)?,
                 pipe_1: get_usb_pipe(api, device_infos, 1)?,
             },
@@ -247,8 +250,49 @@ mod usbhid {
         }
     }
 
-    fn get_revision(pipe_0_device: &HidDevice) -> Result<u16, InitializationError> {
-        Ok(u16::MAX) // TODO
+    #[cfg(windows)]
+    use crate::communication::communication_service::usbhid::windows::get_revision;
+
+    #[cfg(windows)]
+    mod windows {
+        use std::os::windows::io::AsRawHandle;
+        use hidapi::DeviceInfo;
+        use hidapi::HidError::IoError;
+        use winapi::shared::hidsdi::HIDD_ATTRIBUTES;
+        use winapi::shared::minwindef::ULONG;
+        use winapi::um::winnt::HANDLE;
+        use crate::communication::InitializationError;
+
+        pub fn get_revision(device_infos: &Vec<&DeviceInfo>) -> Result<u16, InitializationError> {
+            let requested_pipe = device_infos
+                .iter()
+                .filter(|x| x.interface_number() == 0i32)
+                .next();
+
+            let device = match requested_pipe {
+                None => Err(InitializationError::InternalError(
+                    "Missing Pipe.".to_owned(),
+                )),
+                Some(x) => Ok(x),
+            }?;
+
+            let path = device.path().to_str().map_err(|x| InitializationError::InternalError("Error converting USB HID path.".to_owned()))?;
+            let file = std::fs::File::open(path).map_err(|x| InitializationError::ErrorUSB(IoError { error: x }))?;
+
+            let raw_handle = file.as_raw_handle();
+
+            let mut attributes = HIDD_ATTRIBUTES {
+                Size: std::mem::size_of::<HIDD_ATTRIBUTES>() as ULONG,
+                VendorID: 0,
+                ProductID: 0,
+                VersionNumber: 0,
+            };
+
+            match unsafe { winapi::shared::hidsdi::HidD_GetAttributes(raw_handle as HANDLE, &mut attributes) } != 0 {
+                true => Ok(attributes.VersionNumber as u16),
+                false => Err(InitializationError::InternalError("Error getting revision.".to_owned())),
+            }
+        }
     }
 
     pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
@@ -317,7 +361,7 @@ mod usbhid {
                 Pipe::SpecialMode => pipe_1,
                 Pipe::I2CMode | Pipe::ADCMode => panic!("Requested unsupported Pipe."),
             },
-            USBPipes::IOW28 {
+            USBPipes::Extended {
                 pipe_0,
                 pipe_1,
                 pipe_2,

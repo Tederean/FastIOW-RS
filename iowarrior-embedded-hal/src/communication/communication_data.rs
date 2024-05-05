@@ -54,7 +54,7 @@ mod usbhid {
             pipe_0: HidDevice,
             pipe_1: HidDevice,
         },
-        IOW28 {
+        Extended {
             pipe_0: HidDevice,
             pipe_1: HidDevice,
             pipe_2: HidDevice,
