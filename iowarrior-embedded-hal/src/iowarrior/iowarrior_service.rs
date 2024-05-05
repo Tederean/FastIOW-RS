@@ -3,13 +3,11 @@ use crate::iowarrior::{
     IOWarrior, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, Report, ReportId,
 };
 use crate::pin;
+use hidapi::HidError;
 use std::cell::RefCell;
 use std::rc::Rc;
-use hidapi::HidError;
 
-pub fn create_iowarrior(
-    communication_data: CommunicationData,
-) -> Result<IOWarrior, HidError> {
+pub fn create_iowarrior(communication_data: CommunicationData) -> Result<IOWarrior, HidError> {
     let mut device_data = IOWarriorData {
         i2c_pipe: get_i2c_pipe(communication_data.device_type),
         i2c_pins: get_i2c_pins(communication_data.device_type),
@@ -126,7 +124,7 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
         IOWarriorType::IOWarrior28 => |x| x < 18 || x == 31,
         IOWarriorType::IOWarrior28Dongle | IOWarriorType::IOWarrior56Dongle => |x| false,
         IOWarriorType::IOWarrior28L => |x| x < 18,
-        IOWarriorType::IOWarrior56 => |x| x < 48,
+        IOWarriorType::IOWarrior56 => |x| x < 49 ||x == 55,
         IOWarriorType::IOWarrior100 => {
             |x| x < 11 || (x > 15 && x < 84) || x == 86 || x == 89 || x == 90
         }

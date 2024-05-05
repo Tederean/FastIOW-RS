@@ -1,10 +1,13 @@
-use std::cell::RefMut;
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, peripheral_service, PeripheralSetupError, Pipe, ReportId};
+use crate::communication::communication_service;
+use crate::iowarrior::{
+    peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
+    ReportId,
+};
 use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
 use crate::{iowarrior::IOWarriorType, pin};
-use std::rc::Rc;
 use hidapi::HidError;
-use crate::communication::communication_service;
+use std::cell::RefMut;
+use std::rc::Rc;
 
 pub fn enable_pwm(
     data: &IOWarriorData,
@@ -18,7 +21,6 @@ pub fn enable_pwm(
 
     peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM, result)
 }
-
 
 fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidError> {
     {

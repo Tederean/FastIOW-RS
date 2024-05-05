@@ -1,13 +1,12 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service};
+use crate::communication::communication_service;
 use crate::iowarrior::{
-    IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
-    ReportId, UsedPin,
+    IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe, ReportId, UsedPin,
 };
 use embedded_hal::digital::PinState;
-use std::cell::RefMut;
 use hidapi::HidError;
+use std::cell::RefMut;
 
 pub fn get_used_pins(
     mut_data: &mut RefMut<IOWarriorMutData>,
@@ -71,7 +70,10 @@ pub fn post_enable(
     Ok(())
 }
 
-pub fn cleanup_dangling_modules(data: &IOWarriorData, mut_data: &mut RefMut<IOWarriorMutData>) -> Result<(), HidError> {
+pub fn cleanup_dangling_modules(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+) -> Result<(), HidError> {
     if !mut_data.dangling_peripherals.is_empty() {
         for x in mut_data.dangling_peripherals.to_vec() {
             match x {

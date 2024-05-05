@@ -13,15 +13,16 @@ use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManag
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
 use iowarrior_embedded_hal::delay::Delay;
-use iowarrior_embedded_hal::get_iowarriors;
+use iowarrior_embedded_hal::iowarrior::{IOWarrior, IOWarriorType};
 use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
+use iowarrior_embedded_hal::{get_iowarriors, pin};
 use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn main() {
-    match mcp() {
+    match pins() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
@@ -175,10 +176,25 @@ fn pwm() -> Result<()> {
 }
 
 fn pins() -> Result<()> {
-    let mut iowarriors = get_iowarriors()?;
+    let mut iowarriors: Vec<IOWarrior> = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
-        let pin = iowarrior.setup_output_as_low(8 * 2 + 0)?;
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number(),
+        );
+
+        let pin_number = match iowarrior.get_type() {
+            IOWarriorType::IOWarrior40 => pin!(3, 0),
+            IOWarriorType::IOWarrior24 => pin!(0, 3),
+            IOWarriorType::IOWarrior28 => pin!(2, 0),
+            IOWarriorType::IOWarrior56 => pin!(6, 7),
+            _ => continue,
+        };
+
+        let pin = iowarrior.setup_output_as_low(pin_number)?;
 
         thread::sleep(Duration::from_secs(1));
 

@@ -1,5 +1,5 @@
-use hidapi::HidError;
 use crate::iowarrior::Peripheral;
+use hidapi::HidError;
 use thiserror::Error;
 
 #[non_exhaustive]

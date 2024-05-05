@@ -1,15 +1,18 @@
-use std::cell::RefMut;
 use crate::bits::Bit::{Bit1, Bit2, Bit3, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service};
-use crate::iowarrior::{IOWarriorData, IOWarriorMutData, Peripheral, peripheral_service, PeripheralSetupError, Pipe, Report, ReportId};
+use crate::communication::communication_service;
+use crate::iowarrior::{
+    peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
+    Report, ReportId,
+};
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
 use crate::spi::{SPIConfig, SPIError, SPIMode};
 use crate::{iowarrior::IOWarriorType, pin};
+use hidapi::HidError;
+use std::cell::RefMut;
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
-use hidapi::HidError;
 
 pub fn enable_spi(
     data: &IOWarriorData,
@@ -354,7 +357,8 @@ fn read_report(
     spi_data: &SPIData,
     read_chunk: &mut [u8],
 ) -> Result<(), SPIError> {
-    let report = communication_service::read_report(&data, Pipe::SpecialMode).map_err(|x| SPIError::ErrorUSB(x))?;
+    let report = communication_service::read_report(&data, Pipe::SpecialMode)
+        .map_err(|x| SPIError::ErrorUSB(x))?;
 
     assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
 

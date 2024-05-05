@@ -5,8 +5,8 @@ pub use iowkit::*;
 
 #[cfg(feature = "iowkit")]
 mod iowkit {
-    use std::fmt;
     use crate::iowarrior::IOWarriorType;
+    use std::fmt;
 
     static_assertions::assert_eq_size!(u8, std::os::raw::c_char);
 
@@ -44,19 +44,17 @@ pub use usbhid::*;
 
 #[cfg(feature = "usbhid")]
 mod usbhid {
-    use std::fmt;
-    use hidapi::{HidDevice};
     use crate::iowarrior::IOWarriorType;
+    use hidapi::HidDevice;
+    use std::fmt;
 
     #[derive(Debug)]
     pub enum USBPipes {
-        Standard
-        {
+        Standard {
             pipe_0: HidDevice,
             pipe_1: HidDevice,
         },
-        IOW28
-        {
+        IOW28 {
             pipe_0: HidDevice,
             pipe_1: HidDevice,
             pipe_2: HidDevice,
@@ -72,7 +70,6 @@ mod usbhid {
 
     #[derive(Debug)]
     pub struct CommunicationData {
-        //pub usb_hid_api: Arc<HidApi>,
         pub usb_pipes: USBPipes,
         pub device_revision: u16,
         pub device_serial: String,

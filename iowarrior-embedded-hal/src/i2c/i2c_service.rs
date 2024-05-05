@@ -1,13 +1,15 @@
-use std::cell::RefMut;
 use crate::bits::Bit::{Bit0, Bit6, Bit7};
 use crate::bits::Bitmasking;
-use crate::communication::{communication_service};
+use crate::communication::communication_service;
 use crate::i2c::{I2CConfig, I2CError};
-use crate::iowarrior::{IOWarriorMutData, IOWarriorType, Peripheral, peripheral_service, PeripheralSetupError};
+use crate::iowarrior::{
+    peripheral_service, IOWarriorMutData, IOWarriorType, Peripheral, PeripheralSetupError,
+};
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
+use hidapi::HidError;
+use std::cell::RefMut;
 use std::iter;
 use std::rc::Rc;
-use hidapi::HidError;
 
 pub fn enable_i2c(
     data: &IOWarriorData,
@@ -142,7 +144,8 @@ fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), I2CError> {
 }
 
 fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CError> {
-    let report =  communication_service::read_report(data, data.i2c_pipe).map_err(|x| I2CError::ErrorUSB(x))?;
+    let report = communication_service::read_report(data, data.i2c_pipe)
+        .map_err(|x| I2CError::ErrorUSB(x))?;
 
     assert_eq!(report.buffer[0], report_id.get_value());
 

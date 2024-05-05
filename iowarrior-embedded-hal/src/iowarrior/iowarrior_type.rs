@@ -17,7 +17,7 @@ impl IOWarriorType {
         match device_product_id {
             5376 => Some(IOWarriorType::IOWarrior40),
             5377 => Some(IOWarriorType::IOWarrior24),
-            5359 => Some(IOWarriorType::IOWarrior56),
+            5379 => Some(IOWarriorType::IOWarrior56),
             5380 => Some(IOWarriorType::IOWarrior28),
             5381 => Some(IOWarriorType::IOWarrior28L),
             5382 => Some(IOWarriorType::IOWarrior100),
