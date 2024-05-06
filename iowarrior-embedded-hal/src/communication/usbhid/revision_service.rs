@@ -7,9 +7,9 @@ mod windows {
     use hidapi::DeviceInfo;
     use hidapi::HidError::IoError;
     use std::os::windows::io::AsRawHandle;
-    use winapi::shared::hidsdi::HIDD_ATTRIBUTES;
-    use winapi::shared::minwindef::ULONG;
-    use winapi::um::winnt::HANDLE;
+    use windows::Win32::Devices::HumanInterfaceDevice::HidD_GetAttributes;
+    use windows::Win32::Devices::HumanInterfaceDevice::HIDD_ATTRIBUTES;
+    use windows::Win32::Foundation::{BOOLEAN, HWND};
 
     pub fn get_revision(device_info: &DeviceInfo) -> Result<u16, InitializationError> {
         let path = device_info.path().to_str().map_err(|x| {
@@ -19,20 +19,17 @@ mod windows {
         let file = std::fs::File::open(path)
             .map_err(|x| InitializationError::ErrorUSB(IoError { error: x }))?;
 
-        let raw_handle = file.as_raw_handle();
+        let hwnd = HWND(file.as_raw_handle() as isize);
 
         let mut attributes = HIDD_ATTRIBUTES {
-            Size: std::mem::size_of::<HIDD_ATTRIBUTES>() as ULONG,
+            Size: std::mem::size_of::<HIDD_ATTRIBUTES>() as u32,
             VendorID: 0,
             ProductID: 0,
             VersionNumber: 0,
         };
 
-        match unsafe {
-            winapi::shared::hidsdi::HidD_GetAttributes(raw_handle as HANDLE, &mut attributes)
-        } != 0
-        {
-            true => Ok(attributes.VersionNumber as u16),
+        match unsafe { HidD_GetAttributes(hwnd, &mut attributes) != BOOLEAN(0) } {
+            true => Ok(attributes.VersionNumber),
             false => Err(InitializationError::InternalError(
                 "Error getting revision.".to_owned(),
             )),
