@@ -1,7 +1,7 @@
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 pub use self::windows::*;
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 mod windows {
     use crate::communication::InitializationError;
     use hidapi::DeviceInfo;
@@ -40,10 +40,10 @@ mod windows {
     }
 }
 
-#[cfg(linux)]
+#[cfg(target_os = "linux")]
 pub use self::linux::*;
 
-#[cfg(linux)]
+#[cfg(target_os = "linux")]
 mod linux {
     use crate::communication::InitializationError;
     use hidapi::DeviceInfo;
@@ -55,23 +55,10 @@ mod linux {
     }
 }
 
-#[cfg(linux)]
-pub use self::linux::*;
-
-#[cfg(linux)]
-mod linux {
-    use crate::communication::InitializationError;
-    use hidapi::DeviceInfo;
-
-    pub fn get_revision(device_info: &DeviceInfo) -> Result<u16, InitializationError> {
-        Ok(u16::MIN)
-    }
-}
-
-#[cfg(all(not(windows), not(linux)))]
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 pub use self::unknown::*;
 
-#[cfg(all(not(windows), not(linux)))]
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
 mod unknown {
     use crate::communication::InitializationError;
     use hidapi::DeviceInfo;
