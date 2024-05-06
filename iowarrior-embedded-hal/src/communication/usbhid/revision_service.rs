@@ -49,9 +49,7 @@ mod linux {
     use hidapi::DeviceInfo;
 
     pub fn get_revision(device_info: &DeviceInfo) -> Result<u16, InitializationError> {
-        Err(InitializationError::InternalError(
-            "Getting revision is not implemented on Linux.".to_owned(),
-        ))
+        Ok(u16::MIN)
     }
 }
 
