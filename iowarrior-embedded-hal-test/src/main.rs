@@ -29,7 +29,7 @@ fn main() {
 }
 
 fn mcp() -> Result<()> {
-    let mut iowarriors = get_iowarriors()?;
+    let mut iowarriors = get_iowarriors()?; // "C:\\Windows\\SysWOW64\\iowkit.dll"
 
     for iowarrior in &mut iowarriors {
         println!(
