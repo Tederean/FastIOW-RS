@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::communication::usbhid::revision_service;
 use crate::communication::{CommunicationData, InitializationError, USBPipes};
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
@@ -7,13 +8,10 @@ use itertools::Itertools;
 pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
     let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
 
-    let grouped_usb_devices: Vec<(&str, Vec<DeviceInfo>)> = api
+    let grouped_usb_devices: HashMap<&str, Vec<&DeviceInfo>> = api
         .device_list()
         .filter(|x| x.vendor_id() == 1984 && x.serial_number().is_some())
-        .group_by(|x| x.serial_number().unwrap())
-        .into_iter()
-        .map(|(key, group)| (key, group.map(|x| x.clone()).collect()))
-        .collect();
+        .into_group_map_by(|x| x.serial_number().unwrap());
 
     let mut vec: Vec<IOWarrior> = Vec::new();
 
@@ -46,7 +44,7 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 }
 
 fn get_hid_info(
-    device_infos: &Vec<DeviceInfo>,
+    device_infos: &Vec<&DeviceInfo>,
     pipe_number: u8,
 ) -> Result<DeviceInfo, InitializationError> {
     let requested_pipe = device_infos
@@ -58,14 +56,14 @@ fn get_hid_info(
         None => Err(InitializationError::InternalError(
             "Missing Pipe.".to_owned(),
         )),
-        Some(x) => Ok(x.clone()),
+        Some(x) => Ok((*x).clone()),
     }
 }
 
 fn open_hid_pipes(
     api: &HidApi,
     device_type: IOWarriorType,
-    device_infos: &Vec<DeviceInfo>,
+    device_infos: &Vec<&DeviceInfo>,
 ) -> Result<USBPipes, InitializationError> {
     Ok(match device_type {
         IOWarriorType::IOWarrior28
