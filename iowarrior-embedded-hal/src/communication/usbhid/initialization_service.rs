@@ -5,7 +5,21 @@ use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use itertools::Itertools;
 
+pub type RevisionHandler = fn(&DeviceInfo, IOWarriorType, &str) -> Result<u16, InitializationError>;
+
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+#[inline]
 pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
+    get_iowarriors_internal(revision_service::get_revision)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+#[inline]
+pub fn get_iowarriors(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
+    get_iowarriors_internal(get_revision)
+}
+
+fn get_iowarriors_internal(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
     let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
 
     let grouped_usb_devices: HashMap<&str, Vec<&DeviceInfo>> = api
@@ -23,7 +37,7 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
             Some(x) => x,
         };
 
-        let device_revision = revision_service::get_revision(&pipe_0)?;
+        let device_revision = get_revision(&pipe_0, device_type, serial_number)?;
 
         let usb_pipes = open_hid_pipes(&api, device_type, &device_infos)?;
 

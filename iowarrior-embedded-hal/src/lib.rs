@@ -9,7 +9,7 @@ pub mod i2c;
 pub mod iowarrior;
 pub mod pwm;
 pub mod spi;
-pub use communication::initialization_service::get_iowarriors;
+pub use communication::initialization_service::*;
 
 #[macro_export]
 macro_rules! pin {
