@@ -100,7 +100,6 @@ impl embedded_hal_0::blocking::i2c::WriteRead for I2C {
 }
 
 impl I2C {
-    #[inline]
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,

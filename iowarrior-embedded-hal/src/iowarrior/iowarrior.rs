@@ -48,6 +48,7 @@ impl IOWarrior {
         self.data.communication_data.device_serial.clone()
     }
 
+    #[inline]
     pub fn setup_i2c_with_config(
         &self,
         i2c_config: I2CConfig,
@@ -55,12 +56,14 @@ impl IOWarrior {
         I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
     }
 
+    #[inline]
     pub fn setup_i2c(&self) -> Result<I2C, PeripheralSetupError> {
         let i2c_config = I2CConfig::default();
 
         I2C::new(&self.data, &self.mut_data_refcell, i2c_config)
     }
 
+    #[inline]
     pub fn setup_pwm_with_config(
         &self,
         pwm_config: PWMConfig,
@@ -68,12 +71,14 @@ impl IOWarrior {
         PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
     }
 
+    #[inline]
     pub fn setup_pwm(&self) -> Result<PWM, PeripheralSetupError> {
         let pwm_config = PWMConfig::default();
 
         PWM::new(&self.data, &self.mut_data_refcell, pwm_config)
     }
 
+    #[inline]
     pub fn setup_spi_with_config(
         &self,
         spi_config: SPIConfig,
@@ -81,20 +86,24 @@ impl IOWarrior {
         SPI::new(&self.data, &self.mut_data_refcell, spi_config)
     }
 
+    #[inline]
     pub fn setup_spi(&self) -> Result<SPI, PeripheralSetupError> {
         let spi_config = SPIConfig::default();
 
         SPI::new(&self.data, &self.mut_data_refcell, spi_config)
     }
 
+    #[inline]
     pub fn setup_output_as_high(&self, pin: u8) -> Result<OutputPin, PinSetupError> {
         OutputPin::new(&self.data, &self.mut_data_refcell, pin, PinState::High)
     }
 
+    #[inline]
     pub fn setup_output_as_low(&self, pin: u8) -> Result<OutputPin, PinSetupError> {
         OutputPin::new(&self.data, &self.mut_data_refcell, pin, PinState::Low)
     }
 
+    #[inline]
     pub fn setup_input(&self, pin: u8) -> Result<InputPin, PinSetupError> {
         InputPin::new(&self.data, &self.mut_data_refcell, pin)
     }

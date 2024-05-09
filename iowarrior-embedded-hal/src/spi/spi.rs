@@ -184,7 +184,6 @@ impl embedded_hal::spi::SpiDevice for SPI {
 }
 
 impl SPI {
-    #[inline]
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,

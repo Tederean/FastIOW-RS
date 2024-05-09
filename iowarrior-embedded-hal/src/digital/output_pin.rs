@@ -126,7 +126,6 @@ impl Drop for OutputPin {
 }
 
 impl OutputPin {
-    #[inline]
     pub(crate) fn new(
         data: &Rc<IOWarriorData>,
         mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
