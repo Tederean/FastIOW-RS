@@ -39,7 +39,6 @@ pub use self::linux::*;
 #[cfg(target_os = "linux")]
 mod linux {
     use crate::communication::InitializationError;
-    use hidapi::DeviceInfo;
     use hidapi::HidError::IoError;
     use std::fs::OpenOptions;
     use std::os::fd::AsRawFd;

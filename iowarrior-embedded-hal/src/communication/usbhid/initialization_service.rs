@@ -21,13 +21,6 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 #[inline]
 pub fn get_iowarriors(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
-    let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
-
-    let device_infos: Vec<&DeviceInfo> = api
-        .device_list()
-        .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number() == Some(serial_number) && IOWarriorType::from_device_product_id(x.product_id()).is_some())
-        .collect();
-
     get_iowarrior_internal(&api, &device_infos, serial_number, get_revision)
 }
 
@@ -76,7 +69,7 @@ fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_
 }
 
 fn get_iowarriors_internal(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
-    let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
+    let mut api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
 
     let grouped_usb_devices = api
         .device_list()
