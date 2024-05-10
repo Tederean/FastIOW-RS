@@ -22,9 +22,10 @@ pub fn enable_spi(
 ) -> Result<(), PeripheralSetupError> {
     peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::SPI, &spi_pins)?;
 
-    let result = send_enable_spi(&data, &spi_data);
+    send_enable_spi(&data, &spi_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
-    peripheral_service::post_enable(mut_data, &spi_pins, Peripheral::SPI, result)
+    peripheral_service::post_enable(mut_data, &spi_pins, Peripheral::SPI);
+    Ok(())
 }
 
 fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), HidError> {
@@ -373,8 +374,12 @@ fn read_report(
 
 pub fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
     match data.communication_data.device_type {
-        IOWarriorType::IOWarrior24 => Some(IOWarriorSPIType::IOWarrior24),
-        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
+        IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire => {
+            Some(IOWarriorSPIType::IOWarrior24)
+        }
+        IOWarriorType::IOWarrior56
+        | IOWarriorType::IOWarrior56Dongle => {
             Some(IOWarriorSPIType::IOWarrior56)
         }
         IOWarriorType::IOWarrior100

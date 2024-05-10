@@ -56,18 +56,13 @@ pub fn post_enable(
     mut_data: &mut RefMut<IOWarriorMutData>,
     peripheral_pins: &Vec<u8>,
     peripheral: Peripheral,
-    enable_result: Result<(), HidError>,
-) -> Result<(), PeripheralSetupError> {
-    enable_result.map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
-
+) {
     mut_data
         .pins_in_use
         .extend(peripheral_pins.iter().map(|pin| UsedPin {
             peripheral: Some(peripheral),
             pin: pin.clone(),
         }));
-
-    Ok(())
 }
 
 pub fn cleanup_dangling_modules(

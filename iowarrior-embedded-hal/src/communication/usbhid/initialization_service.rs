@@ -11,7 +11,11 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 
     let grouped_usb_devices = api
         .device_list()
-        .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number().is_some() && IOWarriorType::from_device_product_id(x.product_id()).is_some())
+        .filter(|x| {
+            x.vendor_id() == VENDOR_IDENTIFIER
+                && x.serial_number().is_some()
+                && IOWarriorType::from_device_product_id(x.product_id()).is_some()
+        })
         .into_group_map_by(|x| x.serial_number().unwrap());
 
     let mut vec: Vec<IOWarrior> = Vec::new();
@@ -30,14 +34,21 @@ pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationErr
 
     let device_infos: Vec<&DeviceInfo> = api
         .device_list()
-        .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number() == Some(serial_number) && IOWarriorType::from_device_product_id(x.product_id()).is_some())
+        .filter(|x| {
+            x.vendor_id() == VENDOR_IDENTIFIER
+                && x.serial_number() == Some(serial_number)
+                && IOWarriorType::from_device_product_id(x.product_id()).is_some()
+        })
         .collect();
 
     get_iowarrior_internal(&api, &device_infos, serial_number)
 }
 
-fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_number: &str) -> Result<IOWarrior, InitializationError>
-{
+fn get_iowarrior_internal(
+    api: &HidApi,
+    device_infos: &Vec<&DeviceInfo>,
+    serial_number: &str,
+) -> Result<IOWarrior, InitializationError> {
     let pipe_0 = get_hid_info(&device_infos, 0)?;
     let pipe_0_path = get_hid_path(&pipe_0)?;
 
@@ -107,6 +118,7 @@ fn open_hid_pipes(
         }
         IOWarriorType::IOWarrior40
         | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
         | IOWarriorType::IOWarrior28L
         | IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle => {

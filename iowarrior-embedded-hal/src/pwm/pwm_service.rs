@@ -17,9 +17,10 @@ pub fn enable_pwm(
 ) -> Result<(), PeripheralSetupError> {
     peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
 
-    let result = send_enable_pwm(&data, pwm_data);
+    send_enable_pwm(&data, pwm_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
-    peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM, result)
+    peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM);
+    Ok(())
 }
 
 fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidError> {

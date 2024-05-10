@@ -69,7 +69,9 @@ fn get_iowarrior28_subtype(data: &IOWarriorData) -> IOWarriorType {
 fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
     match device_type {
         IOWarriorType::IOWarrior40 => vec![pin!(0, 6), pin!(0, 7)],
-        IOWarriorType::IOWarrior24 => vec![pin!(0, 1), pin!(0, 2)],
+        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => {
+            vec![pin!(0, 1), pin!(0, 2)]
+        }
         IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => {
             vec![pin!(2, 1), pin!(2, 0)]
         }
@@ -83,19 +85,22 @@ fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
 
 fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {
     match device_type {
-        IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => Pipe::I2CMode,
+        IOWarriorType::IOWarrior28
+        | IOWarriorType::IOWarrior28Dongle
+        | IOWarriorType::IOWarrior100 => Pipe::I2CMode,
         IOWarriorType::IOWarrior40
         | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
         | IOWarriorType::IOWarrior28L
         | IOWarriorType::IOWarrior56
-        | IOWarriorType::IOWarrior56Dongle
-        | IOWarriorType::IOWarrior100 => Pipe::SpecialMode,
+        | IOWarriorType::IOWarrior56Dongle => Pipe::SpecialMode,
     }
 }
 
 fn get_standard_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior24 => 3,
+        IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire => 3,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior28L
@@ -108,7 +113,10 @@ fn get_standard_report_size(device_type: IOWarriorType) -> usize {
 
 fn get_special_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior40 | IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior28L => 8,
+        IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
+        | IOWarriorType::IOWarrior28L => 8,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior56
@@ -121,6 +129,7 @@ fn get_is_valid_gpio(device_type: IOWarriorType) -> fn(u8) -> bool {
     match device_type {
         IOWarriorType::IOWarrior40 => |x| x < 32,
         IOWarriorType::IOWarrior24 => |x| x < 16,
+        IOWarriorType::IOWarrior24PowerVampire => |x| x < 12,
         IOWarriorType::IOWarrior28 => |x| x < 18 || x == 31,
         IOWarriorType::IOWarrior28Dongle | IOWarriorType::IOWarrior56Dongle => |x| false,
         IOWarriorType::IOWarrior28L => |x| x < 18,

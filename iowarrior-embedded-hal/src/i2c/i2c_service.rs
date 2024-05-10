@@ -18,9 +18,10 @@ pub fn enable_i2c(
 ) -> Result<(), PeripheralSetupError> {
     peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
 
-    let result = send_enable_i2c(&data, &i2c_config);
+    send_enable_i2c(&data, &i2c_config).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
-    peripheral_service::post_enable(mut_data, &data.i2c_pins, Peripheral::I2C, result)
+    peripheral_service::post_enable(mut_data, &data.i2c_pins, Peripheral::I2C);
+    Ok(())
 }
 
 fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), HidError> {
@@ -38,6 +39,7 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), H
         }
         IOWarriorType::IOWarrior40
         | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
         | IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior28L => {}
@@ -164,6 +166,7 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
         }
         IOWarriorType::IOWarrior40
         | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
         | IOWarriorType::IOWarrior28L
         | IOWarriorType::IOWarrior100 => {}
     }

@@ -3,11 +3,17 @@ use crate::communication::{CommunicationData, InitializationError};
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use std::sync::Arc;
 
-pub fn get_iowarriors<P>(iowkit_path: P) -> Result<Vec<IOWarrior>, InitializationError>
-where
-    P: AsRef<::std::ffi::OsStr>,
-{
-    let iowkit = unsafe { iowkit_sys::Iowkit::new(iowkit_path) }.map_err(|x| {
+#[cfg(target_os = "windows")]
+const IOWKIT: &str = "C:\\Windows\\SysWOW64\\iowkit.dll";
+
+#[cfg(target_os = "linux")]
+const IOWKIT: &str = "/lib/x86_64-linux-gnu/libiowkit.so";
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+compile_error!("Target operating system has no drivers for IOWarrior.");
+
+pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
+    let iowkit = unsafe { iowkit_sys::Iowkit::new(IOWKIT) }.map_err(|x| {
         InitializationError::InternalError("Error loading iowkit library.".to_owned())
     })?;
 
