@@ -99,8 +99,7 @@ fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {
 
 fn get_standard_report_size(device_type: IOWarriorType) -> usize {
     match device_type {
-        IOWarriorType::IOWarrior24
-        | IOWarriorType::IOWarrior24PowerVampire => 3,
+        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => 3,
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior28L

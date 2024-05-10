@@ -50,18 +50,19 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), H
 
 pub fn check_valid_7bit_address(address: u8) -> Result<(), I2CError> {
     if address > 127 {
-        return Err(I2CError::InvalidI2CAddress);
+        return Err(I2CError::InvalidAddress);
     }
 
     match address > 0 && !(address >= 0x78 && address <= 0x7F) {
         true => Ok(()),
-        false => Err(I2CError::InvalidI2CAddress),
+        false => Err(I2CError::InvalidAddress),
     }
 }
 
 pub fn write_data(data: &Rc<IOWarriorData>, address: u8, buffer: &[u8]) -> Result<(), I2CError> {
     let chunk_iterator = buffer.chunks(data.special_report_size - 3);
     let chunk_iterator_count = chunk_iterator.len();
+
     let report_id = ReportId::I2cWrite;
 
     let mut report = Report {
@@ -152,23 +153,43 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
     assert_eq!(report.buffer[0], report_id.get_value());
 
     if report.buffer[1].get_bit(Bit7) {
-        return Err(I2CError::IOErrorI2C);
+        return Err(I2CError::NoAcknowledge);
+    }
+
+    if report_id == ReportId::I2cWrite {
+        match data.communication_data.device_type {
+            IOWarriorType::IOWarrior28
+            | IOWarriorType::IOWarrior28Dongle
+            | IOWarriorType::IOWarrior100 => match report.buffer[2] {
+                1 => return Err(I2CError::WrongAmountOfBytesRequested),
+                2 => return Err(I2CError::TransactionWithoutStartRequested),
+                3 => return Err(I2CError::NackReceived),
+                4 => return Err(I2CError::BusError),
+                _ => {}
+            },
+            IOWarriorType::IOWarrior40
+            | IOWarriorType::IOWarrior24
+            | IOWarriorType::IOWarrior24PowerVampire
+            | IOWarriorType::IOWarrior28L
+            | IOWarriorType::IOWarrior56
+            | IOWarriorType::IOWarrior56Dongle => {}
+        }
     }
 
     match data.communication_data.device_type {
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior56
-        | IOWarriorType::IOWarrior56Dongle => {
-            if report.buffer[1].get_bit(Bit7) {
-                return Err(I2CError::IOErrorI2CArbitrationLoss);
+        | IOWarriorType::IOWarrior56Dongle
+        | IOWarriorType::IOWarrior100 => {
+            if report.buffer[1].get_bit(Bit6) {
+                return Err(I2CError::ArbitrationLoss);
             }
         }
         IOWarriorType::IOWarrior40
         | IOWarriorType::IOWarrior24
         | IOWarriorType::IOWarrior24PowerVampire
-        | IOWarriorType::IOWarrior28L
-        | IOWarriorType::IOWarrior100 => {}
+        | IOWarriorType::IOWarrior28L => {}
     }
 
     Ok(report)
