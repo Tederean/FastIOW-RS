@@ -9,9 +9,8 @@ mod windows {
     use windows::Win32::Devices::HumanInterfaceDevice::HidD_GetAttributes;
     use windows::Win32::Devices::HumanInterfaceDevice::HIDD_ATTRIBUTES;
     use windows::Win32::Foundation::{BOOLEAN, HWND};
-    use crate::iowarrior::IOWarriorType;
 
-    pub fn get_revision(_device_type: IOWarriorType, device_path: &str, _serial_number: &str) -> Result<u16, InitializationError> {
+    pub fn get_revision(device_path: &str) -> Result<u16, InitializationError> {
         let file = std::fs::File::open(device_path)
             .map_err(|x| InitializationError::ErrorUSB(IoError { error: x }))?;
 
@@ -43,7 +42,6 @@ mod linux {
     use std::fs::OpenOptions;
     use std::os::fd::AsRawFd;
     use std::os::raw;
-    use crate::iowarrior::IOWarriorType;
 
     #[repr(C)]
     struct IOWarriorInfo {
@@ -59,7 +57,7 @@ mod linux {
 
     nix::ioctl_read!(ioctl_read_iowarrior, 0xC0, 3, IOWarriorInfo);
 
-    pub fn get_revision(_device_type: IOWarriorType, device_path: &str, _serial_number: &str) -> Result<u16, InitializationError> {
+    pub fn get_revision(device_path: &str) -> Result<u16, InitializationError> {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -85,5 +83,17 @@ mod linux {
                 "Error getting revision.".to_owned(),
             )),
         }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+pub use self::unknown::*;
+
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+mod unknown {
+    use crate::communication::InitializationError;
+
+    pub fn get_revision(device_path: &str) -> Result<u16, InitializationError> {
+        compile_error!("Target operating system has no drivers for IOWarrior.")
     }
 }

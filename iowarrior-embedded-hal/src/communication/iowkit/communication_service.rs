@@ -1,7 +1,5 @@
-use crate::communication::{CommunicationData, InitializationError, IowkitData};
-use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorData, IOWarriorType, Pipe, Report};
+use crate::iowarrior::{IOWarriorData, Pipe, Report};
 use hidapi::HidError;
-use std::sync::Arc;
 
 pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
     let written_bytes = unsafe {

@@ -6,26 +6,25 @@ use itertools::Itertools;
 
 const VENDOR_IDENTIFIER: u16 = 1984;
 
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-type RevisionHandler = fn(device_type: IOWarriorType, device_path: &str, serial_number: &str) -> Result<u16, InitializationError>;
-
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-pub type RevisionHandler = fn(device_type: IOWarriorType, device_path: &str, serial_number: &str) -> Result<u16, InitializationError>;
-
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-#[inline]
 pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
-    get_iowarriors_internal(revision_service::get_revision)
+    let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
+
+    let grouped_usb_devices = api
+        .device_list()
+        .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number().is_some() && IOWarriorType::from_device_product_id(x.product_id()).is_some())
+        .into_group_map_by(|x| x.serial_number().unwrap());
+
+    let mut vec: Vec<IOWarrior> = Vec::new();
+
+    for (serial_number, device_infos) in grouped_usb_devices {
+        let iowarrior = get_iowarrior_internal(&api, &device_infos, serial_number)?;
+
+        vec.push(iowarrior);
+    }
+
+    Ok(vec)
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-#[inline]
-pub fn get_iowarriors(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
-    get_iowarrior_internal(&api, &device_infos, serial_number, get_revision)
-}
-
-#[cfg(any(target_os = "windows", target_os = "linux"))]
-#[inline]
 pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
     let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
 
@@ -34,16 +33,10 @@ pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationErr
         .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number() == Some(serial_number) && IOWarriorType::from_device_product_id(x.product_id()).is_some())
         .collect();
 
-    get_iowarrior_internal(&api, &device_infos, serial_number, revision_service::get_revision)
+    get_iowarrior_internal(&api, &device_infos, serial_number)
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-#[inline]
-pub fn get_iowarrior(serial_number: &str, get_revision: RevisionHandler) -> Result<IOWarrior, InitializationError> {
-    get_iowarrior_internal(serial_number, get_revision)
-}
-
-fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_number: &str, get_revision: RevisionHandler) -> Result<IOWarrior, InitializationError>
+fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_number: &str) -> Result<IOWarrior, InitializationError>
 {
     let pipe_0 = get_hid_info(&device_infos, 0)?;
     let pipe_0_path = get_hid_path(&pipe_0)?;
@@ -53,7 +46,7 @@ fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_
         Some(x) => x,
     };
 
-    let device_revision = get_revision(device_type, pipe_0_path, serial_number)?;
+    let device_revision = revision_service::get_revision(pipe_0_path)?;
 
     let usb_pipes = open_hid_pipes(&api, device_type, &device_infos)?;
 
@@ -66,25 +59,6 @@ fn get_iowarrior_internal(api: &HidApi, device_infos: &Vec<&DeviceInfo>, serial_
 
     iowarrior_service::create_iowarrior(communication_data)
         .map_err(|x| InitializationError::ErrorUSB(x))
-}
-
-fn get_iowarriors_internal(get_revision: RevisionHandler) -> Result<Vec<IOWarrior>, InitializationError> {
-    let mut api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
-
-    let grouped_usb_devices = api
-        .device_list()
-        .filter(|x| x.vendor_id() == VENDOR_IDENTIFIER && x.serial_number().is_some() && IOWarriorType::from_device_product_id(x.product_id()).is_some())
-        .into_group_map_by(|x| x.serial_number().unwrap());
-
-    let mut vec: Vec<IOWarrior> = Vec::new();
-
-    for (serial_number, device_infos) in grouped_usb_devices {
-        let iowarrior = get_iowarrior_internal(&api, &device_infos, serial_number, get_revision)?;
-
-        vec.push(iowarrior);
-    }
-
-    Ok(vec)
 }
 
 fn get_hid_path(device_info: &DeviceInfo) -> Result<&str, InitializationError> {

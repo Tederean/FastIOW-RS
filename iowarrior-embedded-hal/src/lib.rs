@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 pub mod bits;
-pub(crate) mod communication;
+pub mod communication;
 pub mod delay;
 pub mod digital;
 pub mod i2c;

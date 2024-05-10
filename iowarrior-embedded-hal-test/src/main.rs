@@ -15,11 +15,23 @@ use embedded_sensors::bh1750::Bh1750;
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::iowarrior::{IOWarrior, IOWarriorType};
 use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
-use iowarrior_embedded_hal::{get_iowarriors, pin};
+use iowarrior_embedded_hal::{pin};
 use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use iowarrior_embedded_hal::communication::InitializationError;
+
+#[cfg(target_os = "windows")]
+const IOWKIT: &str = "C:\\Windows\\SysWOW64\\iowkit.dll";
+
+#[cfg(target_os = "linux")]
+const IOWKIT: &str = "/lib/x86_64-linux-gnu/libiowkit.so";
+
+#[inline]
+pub fn get_iowarriors() -> std::result::Result<Vec<IOWarrior>, InitializationError> {
+    iowarrior_embedded_hal::get_iowarriors(IOWKIT)
+}
 
 fn main() {
     match pins() {
@@ -29,7 +41,7 @@ fn main() {
 }
 
 fn mcp() -> Result<()> {
-    let mut iowarriors = get_iowarriors()?; // "C:\\Windows\\SysWOW64\\iowkit.dll"
+    let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {
         println!(
