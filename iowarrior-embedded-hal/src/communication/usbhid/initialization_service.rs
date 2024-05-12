@@ -1,8 +1,10 @@
-use crate::communication::usbhid::revision_service;
 use crate::communication::{CommunicationData, InitializationError, USBPipes};
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
+use hidapi::HidError::IoError;
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use itertools::Itertools;
+use windows::Win32::Devices::HumanInterfaceDevice::{HidD_GetAttributes, HIDD_ATTRIBUTES};
+use windows::Win32::Foundation::{BOOLEAN, HWND};
 
 const VENDOR_IDENTIFIER: u16 = 1984;
 
@@ -32,7 +34,7 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
     let api = HidApi::new().map_err(|x| InitializationError::ErrorUSB(x))?;
 
-    let device_infos: Vec<&DeviceInfo> = api
+    let grouped_usb_device: Vec<&DeviceInfo> = api
         .device_list()
         .filter(|x| {
             x.vendor_id() == VENDOR_IDENTIFIER
@@ -41,7 +43,11 @@ pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationErr
         })
         .collect();
 
-    get_iowarrior_internal(&api, &device_infos, serial_number)
+    if grouped_usb_device.len() == 0 {
+        return Err(InitializationError::NotFound(String::from(serial_number)));
+    }
+
+    get_iowarrior_internal(&api, &grouped_usb_device, serial_number)
 }
 
 fn get_iowarrior_internal(
@@ -57,7 +63,7 @@ fn get_iowarrior_internal(
         Some(x) => x,
     };
 
-    let device_revision = revision_service::get_revision(pipe_0_path)?;
+    let device_revision = get_revision(pipe_0_path)?;
 
     let usb_pipes = open_hid_pipes(&api, device_type, &device_infos)?;
 
@@ -136,4 +142,25 @@ fn open_hid_pipes(
 fn open_hid_pipe(api: &HidApi, pipe: DeviceInfo) -> Result<HidDevice, InitializationError> {
     api.open_path(pipe.path())
         .map_err(|x| InitializationError::ErrorUSB(x))
+}
+
+fn get_revision(device_path: &str) -> Result<u16, InitializationError> {
+    let file = std::fs::File::open(device_path)
+        .map_err(|x| InitializationError::ErrorUSB(IoError { error: x }))?;
+
+    let hwnd = HWND(file.as_raw_handle() as isize);
+
+    let mut attributes = HIDD_ATTRIBUTES {
+        Size: std::mem::size_of::<HIDD_ATTRIBUTES>() as u32,
+        VendorID: 0,
+        ProductID: 0,
+        VersionNumber: 0,
+    };
+
+    match unsafe { HidD_GetAttributes(hwnd, &mut attributes) != BOOLEAN(0) } {
+        true => Ok(attributes.VersionNumber),
+        false => Err(InitializationError::InternalError(
+            "Error getting revision.".to_owned(),
+        )),
+    }
 }

@@ -10,4 +10,6 @@ pub enum InitializationError {
     UnknownIOWarrior(u16),
     #[error("Internal error: {0}")]
     InternalError(String),
+    #[error("IOWarrior not found with serial number: {0}")]
+    NotFound(String),
 }
