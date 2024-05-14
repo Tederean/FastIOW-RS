@@ -1,6 +1,6 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
-use crate::communication::communication_service;
+use crate::communication::{communication_service, CommunicationData};
 use crate::iowarrior::{
     IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe, ReportId, UsedPin,
 };
@@ -72,9 +72,9 @@ pub fn cleanup_dangling_modules(
     if !mut_data.dangling_peripherals.is_empty() {
         for x in mut_data.dangling_peripherals.to_vec() {
             match x {
-                Peripheral::I2C => send_disable_i2c(&data),
-                Peripheral::PWM => send_disable_pwm(&data),
-                Peripheral::SPI => send_disable_spi(&data),
+                Peripheral::I2C => send_disable_i2c(&data, &mut mut_data.communication_data),
+                Peripheral::PWM => send_disable_pwm(&data, &mut mut_data.communication_data),
+                Peripheral::SPI => send_disable_spi(&data, &mut mut_data.communication_data),
             }?;
 
             mut_data.dangling_peripherals.retain(|y| *y != x);
@@ -97,7 +97,8 @@ pub fn set_pin_output(
 
     pins_write_report.buffer[byte_index].set_bit(bit_index, bool::from(pin_state));
 
-    match communication_service::write_report(&data, &pins_write_report) {
+    match communication_service::write_report(&mut mut_data.communication_data, &pins_write_report)
+    {
         Ok(_) => {
             mut_data.pins_write_report = pins_write_report;
             Ok(())
@@ -121,9 +122,9 @@ pub fn disable_peripheral(
     peripheral: Peripheral,
 ) {
     match match peripheral {
-        Peripheral::I2C => send_disable_i2c(&data),
-        Peripheral::PWM => send_disable_pwm(&data),
-        Peripheral::SPI => send_disable_spi(&data),
+        Peripheral::I2C => send_disable_i2c(data, &mut mut_data.communication_data),
+        Peripheral::PWM => send_disable_pwm(data, &mut mut_data.communication_data),
+        Peripheral::SPI => send_disable_spi(data, &mut mut_data.communication_data),
     } {
         Ok(_) => {
             mut_data
@@ -136,29 +137,38 @@ pub fn disable_peripheral(
     }
 }
 
-fn send_disable_i2c(data: &IOWarriorData) -> Result<(), HidError> {
+fn send_disable_i2c(
+    data: &IOWarriorData,
+    communication_data: &mut CommunicationData,
+) -> Result<(), HidError> {
     let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x00;
 
-    communication_service::write_report(&data, &mut report)
+    communication_service::write_report(communication_data, &report)
 }
 
-fn send_disable_pwm(data: &IOWarriorData) -> Result<(), HidError> {
+fn send_disable_pwm(
+    data: &IOWarriorData,
+    communication_data: &mut CommunicationData,
+) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::PwmSetup.get_value();
     report.buffer[1] = 0x00;
 
-    communication_service::write_report(&data, &mut report)
+    communication_service::write_report(communication_data, &report)
 }
 
-fn send_disable_spi(data: &IOWarriorData) -> Result<(), HidError> {
+fn send_disable_spi(
+    data: &IOWarriorData,
+    communication_data: &mut CommunicationData,
+) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
     report.buffer[1] = 0x00;
 
-    communication_service::write_report(&data, &mut report)
+    communication_service::write_report(communication_data, &report)
 }

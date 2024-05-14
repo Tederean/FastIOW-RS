@@ -1,9 +1,12 @@
-use crate::communication::USBPipes;
-use crate::iowarrior::{IOWarriorData, Pipe, Report};
+use crate::communication::{CommunicationData, USBPipes};
+use crate::iowarrior::{Pipe, Report};
 use hidapi::{HidDevice, HidError};
 
-pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
-    let usb_device = pipe_to_hid_device(&data.communication_data.usb_pipes, report.pipe);
+pub fn write_report(
+    communication_data: &mut CommunicationData,
+    report: &Report,
+) -> Result<(), HidError> {
+    let usb_device = pipe_to_hid_device(&communication_data.usb_pipes, report.pipe);
 
     let bytes_written = usb_device.write(report.buffer.as_slice())?;
 
@@ -18,12 +21,10 @@ pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidErro
 }
 
 pub fn read_report_non_blocking(
-    data: &IOWarriorData,
-    pipe: Pipe,
+    communication_data: &mut CommunicationData,
+    mut report: Report,
 ) -> Result<Option<Report>, HidError> {
-    let mut report = data.create_report(pipe);
-
-    let usb_device = pipe_to_hid_device(&data.communication_data.usb_pipes, report.pipe);
+    let usb_device = pipe_to_hid_device(&communication_data.usb_pipes, report.pipe);
 
     usb_device.set_blocking_mode(false)?;
 
@@ -42,10 +43,11 @@ pub fn read_report_non_blocking(
     })
 }
 
-pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, HidError> {
-    let mut report = data.create_report(pipe);
-
-    let usb_device = pipe_to_hid_device(&data.communication_data.usb_pipes, report.pipe);
+pub fn read_report(
+    communication_data: &mut CommunicationData,
+    mut report: Report,
+) -> Result<Report, HidError> {
+    let usb_device = pipe_to_hid_device(&communication_data.usb_pipes, report.pipe);
 
     usb_device.set_blocking_mode(true)?;
 

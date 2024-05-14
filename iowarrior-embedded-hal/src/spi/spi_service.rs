@@ -22,13 +22,17 @@ pub fn enable_spi(
 ) -> Result<(), PeripheralSetupError> {
     peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::SPI, &spi_pins)?;
 
-    send_enable_spi(&data, &spi_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+    send_enable_spi(&data, mut_data, &spi_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
     peripheral_service::post_enable(mut_data, &spi_pins, Peripheral::SPI);
     Ok(())
 }
 
-fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), HidError> {
+fn send_enable_spi(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    spi_data: &SPIData,
+) -> Result<(), HidError> {
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
@@ -88,7 +92,7 @@ fn send_enable_spi(data: &IOWarriorData, spi_data: &SPIData) -> Result<(), HidEr
         }
     }
 
-    communication_service::write_report(&data, &mut report)
+    communication_service::write_report(&mut mut_data.communication_data, &mut report)
 }
 
 pub fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
@@ -144,6 +148,7 @@ fn calculate_iow56_data(spi_data: &mut SPIData) {
 
 pub fn read_data(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     words: &mut [u8],
 ) -> Result<(), SPIError> {
@@ -161,12 +166,13 @@ pub fn read_data(
 
         write_report(
             &data,
+            mut_data,
             &spi_data,
             &dummy_write_buffer[0..read_chunk.len()],
             use_data_ready_pin,
             chip_select_stays_active,
         )?;
-        read_report(&data, &spi_data, read_chunk)?;
+        read_report(&data, mut_data, &spi_data, read_chunk)?;
     }
 
     Ok(())
@@ -174,6 +180,7 @@ pub fn read_data(
 
 pub fn write_data(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     words: &[u8],
 ) -> Result<(), SPIError> {
@@ -191,6 +198,7 @@ pub fn write_data(
 
         write_report(
             &data,
+            mut_data,
             &spi_data,
             write_chunk,
             use_data_ready_pin,
@@ -198,6 +206,7 @@ pub fn write_data(
         )?;
         read_report(
             &data,
+            mut_data,
             &spi_data,
             &mut dummy_read_buffer[0..write_chunk.len()],
         )?;
@@ -208,6 +217,7 @@ pub fn write_data(
 
 pub fn transfer_data_with_different_size(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     read: &mut [u8],
     write: &[u8],
@@ -221,12 +231,18 @@ pub fn transfer_data_with_different_size(
                 iter::repeat(spi_data.spi_config.dummy_value).take(write.len() - read.len()),
             );
 
-            transfer_data_with_same_size(&data, &spi_data, fixed_read.as_mut_slice(), write)?;
+            transfer_data_with_same_size(
+                &data,
+                mut_data,
+                &spi_data,
+                fixed_read.as_mut_slice(),
+                write,
+            )?;
 
             read.copy_from_slice(&fixed_read[0..read.len()]);
             Ok(())
         }
-        Ordering::Equal => transfer_data_with_same_size(&data, &spi_data, read, write),
+        Ordering::Equal => transfer_data_with_same_size(&data, mut_data, &spi_data, read, write),
         Ordering::Greater => {
             let mut fixed_write: Vec<u8> = Vec::with_capacity(read.len());
 
@@ -235,13 +251,14 @@ pub fn transfer_data_with_different_size(
                 iter::repeat(spi_data.spi_config.dummy_value).take(read.len() - write.len()),
             );
 
-            transfer_data_with_same_size(&data, &spi_data, read, fixed_write.as_slice())
+            transfer_data_with_same_size(&data, mut_data, &spi_data, read, fixed_write.as_slice())
         }
     }
 }
 
 pub fn transfer_data_with_same_size(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     read: &mut [u8],
     write: &[u8],
@@ -259,12 +276,13 @@ pub fn transfer_data_with_same_size(
 
         write_report(
             &data,
+            mut_data,
             &spi_data,
             write,
             use_data_ready_pin,
             chip_select_stays_active,
         )?;
-        read_report(&data, &spi_data, read)?;
+        read_report(&data, mut_data, &spi_data, read)?;
     }
 
     Ok(())
@@ -272,6 +290,7 @@ pub fn transfer_data_with_same_size(
 
 pub fn transfer_data_in_place(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     words: &mut [u8],
 ) -> Result<(), SPIError> {
@@ -287,12 +306,13 @@ pub fn transfer_data_in_place(
 
         write_report(
             &data,
+            mut_data,
             &spi_data,
             chunk,
             use_data_ready_pin,
             chip_select_stays_active,
         )?;
-        read_report(&data, &spi_data, chunk)?;
+        read_report(&data, mut_data, &spi_data, chunk)?;
     }
 
     Ok(())
@@ -308,6 +328,7 @@ fn get_chunk_size(data: &Rc<IOWarriorData>, spi_data: &SPIData) -> usize {
 
 fn write_report(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     write_chunk: &[u8],
     use_data_ready_pin: bool,
@@ -350,16 +371,21 @@ fn write_report(
         .buffer
         .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
-    communication_service::write_report(&data, &report).map_err(|x| SPIError::ErrorUSB(x))
+    communication_service::write_report(&mut mut_data.communication_data, &report)
+        .map_err(|x| SPIError::ErrorUSB(x))
 }
 
 fn read_report(
     data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
     spi_data: &SPIData,
     read_chunk: &mut [u8],
 ) -> Result<(), SPIError> {
-    let report = communication_service::read_report(&data, Pipe::SpecialMode)
-        .map_err(|x| SPIError::ErrorUSB(x))?;
+    let report = communication_service::read_report(
+        &mut mut_data.communication_data,
+        data.create_report(Pipe::SpecialMode),
+    )
+    .map_err(|x| SPIError::ErrorUSB(x))?;
 
     assert_eq!(report.buffer[0], ReportId::SpiTransfer.get_value());
 
@@ -373,7 +399,7 @@ fn read_report(
 }
 
 pub fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
-    match data.communication_data.device_type {
+    match data.device_type {
         IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => {
             Some(IOWarriorSPIType::IOWarrior24)
         }

@@ -1,10 +1,14 @@
-use crate::iowarrior::{IOWarriorData, Pipe, Report};
+use crate::communication::CommunicationData;
+use crate::iowarrior::Report;
 use hidapi::HidError;
 
-pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidError> {
+pub fn write_report(
+    communication_data: &mut CommunicationData,
+    report: &Report,
+) -> Result<(), HidError> {
     let written_bytes = unsafe {
-        data.communication_data.iowkit_data.iowkit.IowKitWrite(
-            data.communication_data.device_handle,
+        communication_data.iowkit_data.iowkit.IowKitWrite(
+            communication_data.device_handle,
             report.pipe.get_value() as iowkit_sys::ULONG,
             report.buffer.as_ptr() as iowkit_sys::PCHAR,
             report.buffer.len() as iowkit_sys::ULONG,
@@ -22,21 +26,16 @@ pub fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), HidErro
 }
 
 pub fn read_report_non_blocking(
-    data: &IOWarriorData,
-    pipe: Pipe,
+    communication_data: &mut CommunicationData,
+    mut report: Report,
 ) -> Result<Option<Report>, HidError> {
-    let mut report = data.create_report(pipe);
-
     let read_bytes = unsafe {
-        data.communication_data
-            .iowkit_data
-            .iowkit
-            .IowKitReadNonBlocking(
-                data.communication_data.device_handle,
-                report.pipe.get_value() as iowkit_sys::ULONG,
-                report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
-                report.buffer.len() as iowkit_sys::ULONG,
-            )
+        communication_data.iowkit_data.iowkit.IowKitReadNonBlocking(
+            communication_data.device_handle,
+            report.pipe.get_value() as iowkit_sys::ULONG,
+            report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
+            report.buffer.len() as iowkit_sys::ULONG,
+        )
     } as usize;
 
     if read_bytes != report.buffer.len() {
@@ -46,12 +45,13 @@ pub fn read_report_non_blocking(
     Ok(Some(report))
 }
 
-pub fn read_report(data: &IOWarriorData, pipe: Pipe) -> Result<Report, HidError> {
-    let mut report = data.create_report(pipe);
-
+pub fn read_report(
+    communication_data: &mut CommunicationData,
+    mut report: Report,
+) -> Result<Report, HidError> {
     let read_bytes = unsafe {
-        data.communication_data.iowkit_data.iowkit.IowKitRead(
-            data.communication_data.device_handle,
+        communication_data.iowkit_data.iowkit.IowKitRead(
+            communication_data.device_handle,
             report.pipe.get_value() as iowkit_sys::ULONG,
             report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
             report.buffer.len() as iowkit_sys::ULONG,

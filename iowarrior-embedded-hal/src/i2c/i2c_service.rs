@@ -6,6 +6,7 @@ use crate::iowarrior::{
     peripheral_service, IOWarriorMutData, IOWarriorType, Peripheral, PeripheralSetupError,
 };
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
+use crate::pin;
 use hidapi::HidError;
 use std::cell::RefMut;
 use std::iter;
@@ -16,21 +17,29 @@ pub fn enable_i2c(
     mut_data: &mut RefMut<IOWarriorMutData>,
     i2c_config: I2CConfig,
 ) -> Result<(), PeripheralSetupError> {
-    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::I2C, &data.i2c_pins)?;
+    let i2c_pins = get_i2c_pins(data.device_type);
 
-    send_enable_i2c(&data, &i2c_config).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::I2C, &i2c_pins)?;
 
-    peripheral_service::post_enable(mut_data, &data.i2c_pins, Peripheral::I2C);
+    send_enable_i2c(data, mut_data, &i2c_config, &i2c_pins)
+        .map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+
+    peripheral_service::post_enable(mut_data, &i2c_pins, Peripheral::I2C);
     Ok(())
 }
 
-fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), HidError> {
+fn send_enable_i2c(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    i2c_config: &I2CConfig,
+    i2c_pins: &Vec<u8>,
+) -> Result<(), HidError> {
     let mut report = data.create_report(data.i2c_pipe);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x01;
 
-    match data.communication_data.device_type {
+    match data.device_type {
         IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
             report.buffer[2] = i2c_config.iow56_clock.get_value();
         }
@@ -45,7 +54,7 @@ fn send_enable_i2c(data: &IOWarriorData, i2c_config: &I2CConfig) -> Result<(), H
         | IOWarriorType::IOWarrior28L => {}
     }
 
-    communication_service::write_report(&data, &mut report)
+    communication_service::write_report(&mut mut_data.communication_data, &mut report)
 }
 
 pub fn check_valid_7bit_address(address: u8) -> Result<(), I2CError> {
@@ -59,7 +68,12 @@ pub fn check_valid_7bit_address(address: u8) -> Result<(), I2CError> {
     }
 }
 
-pub fn write_data(data: &Rc<IOWarriorData>, address: u8, buffer: &[u8]) -> Result<(), I2CError> {
+pub fn write_data(
+    data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    address: u8,
+    buffer: &[u8],
+) -> Result<(), I2CError> {
     let chunk_iterator = buffer.chunks(data.special_report_size - 3);
     let chunk_iterator_count = chunk_iterator.len();
 
@@ -100,15 +114,21 @@ pub fn write_data(data: &Rc<IOWarriorData>, address: u8, buffer: &[u8]) -> Resul
             .buffer
             .extend(iter::repeat(0u8).take(data.special_report_size - report.buffer.len()));
 
-        write_report(data, &report)?;
+        communication_service::write_report(&mut mut_data.communication_data, &report)
+            .map_err(|x| I2CError::ErrorUSB(x))?;
     }
 
-    _ = read_report(data, report_id)?;
+    _ = read_report(data, mut_data, report_id)?;
 
     Ok(())
 }
 
-pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result<(), I2CError> {
+pub fn read_data(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    address: u8,
+    buffer: &mut [u8],
+) -> Result<(), I2CError> {
     let chunk_iterator = buffer.chunks_mut(data.special_report_size - 2);
     let report_id = ReportId::I2cRead;
 
@@ -129,11 +149,12 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
                 value
             };
 
-            write_report(data, &report)?;
+            communication_service::write_report(&mut mut_data.communication_data, &report)
+                .map_err(|x| I2CError::ErrorUSB(x))?;
         }
 
         {
-            let report = read_report(data, report_id)?;
+            let report = read_report(data, mut_data, report_id)?;
 
             chunk.copy_from_slice(&report.buffer[2..((chunk_length + 2) as usize)]);
         }
@@ -142,13 +163,16 @@ pub fn read_data(data: &IOWarriorData, address: u8, buffer: &mut [u8]) -> Result
     Ok(())
 }
 
-fn write_report(data: &IOWarriorData, report: &Report) -> Result<(), I2CError> {
-    communication_service::write_report(data, &report).map_err(|x| I2CError::ErrorUSB(x))
-}
-
-fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CError> {
-    let report = communication_service::read_report(data, data.i2c_pipe)
-        .map_err(|x| I2CError::ErrorUSB(x))?;
+fn read_report(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    report_id: ReportId,
+) -> Result<Report, I2CError> {
+    let report = communication_service::read_report(
+        &mut mut_data.communication_data,
+        data.create_report(data.i2c_pipe),
+    )
+    .map_err(|x| I2CError::ErrorUSB(x))?;
 
     assert_eq!(report.buffer[0], report_id.get_value());
 
@@ -157,7 +181,7 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
     }
 
     if report_id == ReportId::I2cWrite {
-        match data.communication_data.device_type {
+        match data.device_type {
             IOWarriorType::IOWarrior28
             | IOWarriorType::IOWarrior28Dongle
             | IOWarriorType::IOWarrior100 => match report.buffer[2] {
@@ -176,7 +200,7 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
         }
     }
 
-    match data.communication_data.device_type {
+    match data.device_type {
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior56
@@ -193,4 +217,21 @@ fn read_report(data: &IOWarriorData, report_id: ReportId) -> Result<Report, I2CE
     }
 
     Ok(report)
+}
+
+fn get_i2c_pins(device_type: IOWarriorType) -> Vec<u8> {
+    match device_type {
+        IOWarriorType::IOWarrior40 => vec![pin!(0, 6), pin!(0, 7)],
+        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => {
+            vec![pin!(0, 1), pin!(0, 2)]
+        }
+        IOWarriorType::IOWarrior28 | IOWarriorType::IOWarrior28Dongle => {
+            vec![pin!(2, 1), pin!(2, 0)]
+        }
+        IOWarriorType::IOWarrior28L => vec![pin!(0, 1), pin!(0, 2)],
+        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
+            vec![pin!(1, 7), pin!(1, 5)]
+        }
+        IOWarriorType::IOWarrior100 => vec![pin!(10, 4), pin!(10, 5)],
+    }
 }

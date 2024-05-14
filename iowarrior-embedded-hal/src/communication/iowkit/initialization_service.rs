@@ -4,13 +4,10 @@ use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
-const IOWKIT: &str = "C:\\Windows\\SysWOW64\\iowkit.dll";
+const IOWKIT: &str = "iowkit.dll";
 
 #[cfg(target_os = "linux")]
-const IOWKIT: &str = "/lib/x86_64-linux-gnu/libiowkit.so";
-
-#[cfg(not(any(target_os = "windows", target_os = "linux")))]
-compile_error!("Target operating system has no drivers for IOWarrior.");
+const IOWKIT: &str = "libiowkit.so";
 
 pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
     let iowkit = unsafe { iowkit_sys::Iowkit::new(IOWKIT) }.map_err(|x| {
@@ -71,17 +68,23 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 
         let communication_data = CommunicationData {
             iowkit_data: iowkit_data.clone(),
-            device_type,
-            device_serial,
             device_handle,
-            device_revision,
         };
 
-        let iowarrior = iowarrior_service::create_iowarrior(communication_data)
-            .map_err(|x| InitializationError::ErrorUSB(x))?;
+        let iowarrior = iowarrior_service::create_iowarrior(
+            device_type,
+            device_revision,
+            device_serial,
+            communication_data,
+        )
+        .map_err(|x| InitializationError::ErrorUSB(x))?;
 
         vec.push(iowarrior);
     }
 
     Ok(vec)
+}
+
+pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
+    todo!()
 }

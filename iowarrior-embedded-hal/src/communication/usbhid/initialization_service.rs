@@ -5,6 +5,7 @@ use hidapi::{DeviceInfo, HidApi, HidDevice};
 use itertools::Itertools;
 use windows::Win32::Devices::HumanInterfaceDevice::{HidD_GetAttributes, HIDD_ATTRIBUTES};
 use windows::Win32::Foundation::{BOOLEAN, HWND};
+use std::os::windows::io::AsRawHandle;
 
 const VENDOR_IDENTIFIER: u16 = 1984;
 
@@ -59,7 +60,7 @@ fn get_iowarrior_internal(
     let pipe_0_path = get_hid_path(&pipe_0)?;
 
     let device_type = match IOWarriorType::from_device_product_id(pipe_0.product_id()) {
-        None => return Err(InitializationError::UnknownIOWarrior(pipe_0.product_id())),
+        None => return Err(InitializationError::NotFound(String::from(serial_number))),
         Some(x) => x,
     };
 
@@ -67,15 +68,15 @@ fn get_iowarrior_internal(
 
     let usb_pipes = open_hid_pipes(&api, device_type, &device_infos)?;
 
-    let communication_data = CommunicationData {
-        device_revision,
-        device_serial: String::from(serial_number),
-        device_type,
-        usb_pipes,
-    };
+    let communication_data = CommunicationData { usb_pipes };
 
-    iowarrior_service::create_iowarrior(communication_data)
-        .map_err(|x| InitializationError::ErrorUSB(x))
+    iowarrior_service::create_iowarrior(
+        device_type,
+        device_revision,
+        String::from(serial_number),
+        communication_data,
+    )
+    .map_err(|x| InitializationError::ErrorUSB(x))
 }
 
 fn get_hid_path(device_info: &DeviceInfo) -> Result<&str, InitializationError> {

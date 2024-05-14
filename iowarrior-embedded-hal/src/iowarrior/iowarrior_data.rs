@@ -1,16 +1,14 @@
-use crate::communication::CommunicationData;
-use crate::iowarrior::Pipe;
-use crate::iowarrior::Report;
+use crate::iowarrior::{IOWarriorType, Pipe, Report};
 use std::fmt;
 
 #[derive(Debug)]
 pub struct IOWarriorData {
-    pub communication_data: CommunicationData,
+    pub device_revision: u16,
+    pub device_serial: String,
+    pub device_type: IOWarriorType,
     pub standard_report_size: usize,
     pub special_report_size: usize,
     pub i2c_pipe: Pipe,
-    pub i2c_pins: Vec<u8>,
-    pub is_valid_gpio: fn(u8) -> bool,
 }
 
 impl IOWarriorData {

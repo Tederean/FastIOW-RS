@@ -1,4 +1,3 @@
-use crate::iowarrior::IOWarriorType;
 use std::fmt;
 use std::fs::File;
 
@@ -37,9 +36,6 @@ impl fmt::Display for USBPipes {
 #[derive(Debug)]
 pub struct CommunicationData {
     pub usb_pipes: USBPipes,
-    pub device_revision: u16,
-    pub device_serial: String,
-    pub device_type: IOWarriorType,
 }
 
 impl fmt::Display for CommunicationData {

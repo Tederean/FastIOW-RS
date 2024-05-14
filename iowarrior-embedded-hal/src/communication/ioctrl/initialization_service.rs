@@ -1,20 +1,57 @@
 use crate::communication::{CommunicationData, InitializationError, USBPipe, USBPipes};
+use crate::delay::Delay;
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use hidapi::HidError::IoError;
 use itertools::Itertools;
 use std::ffi::CStr;
+use std::fmt;
 use std::fs::OpenOptions;
 use std::os::fd::AsRawFd;
 use std::os::raw;
 
 const VENDOR_IDENTIFIER: i32 = 1984;
 
+#[repr(C)]
+#[derive(Debug)]
+struct IoctlInfo {
+    vendor: raw::c_int,
+    product: raw::c_int,
+    serial: [raw::c_char; 9],
+    revision: raw::c_int,
+    speed: raw::c_int,
+    power: raw::c_int,
+    interface: raw::c_int,
+    packet_size: raw::c_uint,
+}
+
+nix::ioctl_read!(ioctl_info_iowarrior, 0xC0, 3, IoctlInfo);
+
+impl fmt::Display for IoctlInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+#[derive(Debug)]
+struct IOWarriorInfo {
+    usb_pipe: USBPipe,
+    device_type: IOWarriorType,
+    device_revision: u16,
+    device_serial: String,
+}
+
+impl fmt::Display for Delay {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
     let device_list = get_device_list()?;
 
     let grouped_usb_devices = device_list
         .into_iter()
-        .into_group_map_by(|(usb_pipe, device_type, revision, serial)| serial.clone());
+        .into_group_map_by(|iowarrior_info| iowarrior_info.device_serial.clone());
 
     let mut vec: Vec<IOWarrior> = Vec::new();
 
@@ -28,11 +65,11 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 }
 
 pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
-    let device_list: Vec<(USBPipe, IOWarriorType, u16, String)> = get_device_list()?;
+    let device_list: Vec<IOWarriorInfo> = get_device_list()?;
 
     let grouped_usb_device: Vec<_> = device_list
         .into_iter()
-        .filter(|(usb_pipe, device_type, revision, serial)| serial == serial_number)
+        .filter(|iowarrior_info| iowarrior_info.device_serial == serial_number)
         .collect();
 
     if grouped_usb_device.len() == 0 {
@@ -43,35 +80,38 @@ pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationErr
 }
 
 fn get_iowarrior_internal(
-    device_infos: Vec<(USBPipe, IOWarriorType, u16, String)>,
+    device_infos: Vec<IOWarriorInfo>,
     serial_number: &str,
 ) -> Result<IOWarrior, InitializationError> {
-    let (_, device_type_borrow, device_revision_borrow, device_serial_borrow) =
-        device_infos.iter().next().unwrap();
+    let iowarrior_info = device_infos.iter().next().unwrap();
 
-    let device_type = device_type_borrow.clone();
-    let device_revision = device_revision_borrow.clone();
-    let device_serial = device_serial_borrow.clone();
+    let device_type = iowarrior_info.device_type.clone();
+    let device_revision = iowarrior_info.device_revision.clone();
+    let device_serial = iowarrior_info.device_serial.clone();
 
     let usb_pipes = get_usb_pipes(device_type, device_infos)?;
 
-    let communication_data = CommunicationData {
+    let communication_data = CommunicationData { usb_pipes };
+
+    iowarrior_service::create_iowarrior(
+        device_type,
         device_revision,
         device_serial,
-        device_type,
-        usb_pipes,
-    };
-
-    iowarrior_service::create_iowarrior(communication_data)
-        .map_err(|x| InitializationError::ErrorUSB(x))
+        communication_data,
+    )
+    .map_err(|x| InitializationError::ErrorUSB(x))
 }
 
 fn get_usb_pipes(
     device_type: IOWarriorType,
-    mut device_infos: Vec<(USBPipe, IOWarriorType, u16, String)>,
+    mut device_infos: Vec<IOWarriorInfo>,
 ) -> Result<USBPipes, InitializationError> {
-    device_infos
-        .sort_by(|(a, _, _, _), (b, _, _, _)| a.interface.partial_cmp(&b.interface).unwrap());
+    device_infos.sort_by(|(a), (b)| {
+        a.usb_pipe
+            .interface
+            .partial_cmp(&b.usb_pipe.interface)
+            .unwrap()
+    });
 
     let mut iterator = device_infos.into_iter();
 
@@ -79,16 +119,16 @@ fn get_usb_pipes(
         IOWarriorType::IOWarrior28
         | IOWarriorType::IOWarrior28Dongle
         | IOWarriorType::IOWarrior100 => {
-            let (pipe_0, _, _, _) = iterator.next().unwrap();
-            let (pipe_1, _, _, _) = iterator.next().unwrap();
-            let (pipe_2, _, _, _) = iterator.next().unwrap();
-            let (pipe_3, _, _, _) = iterator.next().unwrap();
+            let usb_0 = iterator.next().unwrap();
+            let usb_1 = iterator.next().unwrap();
+            let usb_2 = iterator.next().unwrap();
+            let usb_3 = iterator.next().unwrap();
 
             USBPipes::Extended {
-                pipe_0,
-                pipe_1,
-                pipe_2,
-                pipe_3,
+                pipe_0: usb_0.usb_pipe,
+                pipe_1: usb_1.usb_pipe,
+                pipe_2: usb_2.usb_pipe,
+                pipe_3: usb_3.usb_pipe,
             }
         }
         IOWarriorType::IOWarrior40
@@ -97,16 +137,19 @@ fn get_usb_pipes(
         | IOWarriorType::IOWarrior28L
         | IOWarriorType::IOWarrior56
         | IOWarriorType::IOWarrior56Dongle => {
-            let (pipe_0, _, _, _) = iterator.next().unwrap();
-            let (pipe_1, _, _, _) = iterator.next().unwrap();
+            let usb_0 = iterator.next().unwrap();
+            let usb_1 = iterator.next().unwrap();
 
-            USBPipes::Standard { pipe_0, pipe_1 }
+            USBPipes::Standard {
+                pipe_0: usb_0.usb_pipe,
+                pipe_1: usb_1.usb_pipe,
+            }
         }
     })
 }
 
-fn get_device_list() -> Result<Vec<(USBPipe, IOWarriorType, u16, String)>, InitializationError> {
-    let mut device_list: Vec<(USBPipe, IOWarriorType, u16, String)> = Vec::new();
+fn get_device_list() -> Result<Vec<IOWarriorInfo>, InitializationError> {
+    let mut device_list: Vec<IOWarriorInfo> = Vec::new();
 
     for glob_result in glob::glob("/dev/usb/iowarrior*")
         .map_err(|x| InitializationError::InternalError("Error getting device list.".to_owned()))?
@@ -130,7 +173,7 @@ fn get_device_list() -> Result<Vec<(USBPipe, IOWarriorType, u16, String)>, Initi
 
                 let raw_file_descriptor = file.as_raw_fd();
 
-                let mut info = IOWarriorInfo {
+                let mut ioctl_info = IoctlInfo {
                     vendor: 0,
                     product: 0,
                     serial: [0; 9],
@@ -141,7 +184,7 @@ fn get_device_list() -> Result<Vec<(USBPipe, IOWarriorType, u16, String)>, Initi
                     packet_size: 0,
                 };
 
-                match unsafe { ioctl_info_iowarrior(raw_file_descriptor, &mut info) } {
+                match unsafe { ioctl_info_iowarrior(raw_file_descriptor, &mut ioctl_info) } {
                     Ok(_) => {}
                     Err(_) => {
                         return Err(InitializationError::InternalError(
@@ -150,29 +193,33 @@ fn get_device_list() -> Result<Vec<(USBPipe, IOWarriorType, u16, String)>, Initi
                     }
                 }
 
-                if info.vendor != VENDOR_IDENTIFIER {
+                if ioctl_info.vendor != VENDOR_IDENTIFIER {
                     continue;
                 }
 
-                let serial_number = get_serial_number(&info)?;
+                let device_serial = get_serial_number(&ioctl_info)?;
 
-                if serial_number.is_empty() {
+                if device_serial.is_empty() {
                     continue;
                 }
 
-                let device_type = match IOWarriorType::from_device_product_id(info.product as u16) {
-                    None => continue,
-                    Some(x) => x,
-                };
-
-                let revision = info.revision as u16;
+                let device_type =
+                    match IOWarriorType::from_device_product_id(ioctl_info.product as u16) {
+                        None => continue,
+                        Some(x) => x,
+                    };
 
                 let usb_pipe = USBPipe {
                     file,
-                    interface: info.interface as u8,
+                    interface: ioctl_info.interface as u8,
                 };
 
-                device_list.push((usb_pipe, device_type, revision, serial_number));
+                device_list.push(IOWarriorInfo {
+                    device_revision: ioctl_info.revision as u16,
+                    device_serial,
+                    device_type,
+                    usb_pipe,
+                });
             }
         }
     }
@@ -180,8 +227,8 @@ fn get_device_list() -> Result<Vec<(USBPipe, IOWarriorType, u16, String)>, Initi
     Ok(device_list)
 }
 
-fn get_serial_number(iowarrior_info: &IOWarriorInfo) -> Result<String, InitializationError> {
-    let raw_pointer = iowarrior_info.serial.as_ptr();
+fn get_serial_number(ioctl_info: &IoctlInfo) -> Result<String, InitializationError> {
+    let raw_pointer = ioctl_info.serial.as_ptr();
 
     let cstr = unsafe { CStr::from_ptr(raw_pointer) };
 
@@ -191,17 +238,3 @@ fn get_serial_number(iowarrior_info: &IOWarriorInfo) -> Result<String, Initializ
 
     Ok(String::from(str))
 }
-
-#[repr(C)]
-struct IOWarriorInfo {
-    vendor: raw::c_int,
-    product: raw::c_int,
-    serial: [raw::c_char; 9],
-    revision: raw::c_int,
-    speed: raw::c_int,
-    power: raw::c_int,
-    interface: raw::c_int,
-    packet_size: raw::c_uint,
-}
-
-nix::ioctl_read!(ioctl_info_iowarrior, 0xC0, 3, IOWarriorInfo);

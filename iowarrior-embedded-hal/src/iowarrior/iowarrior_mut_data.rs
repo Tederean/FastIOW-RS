@@ -1,9 +1,11 @@
+use crate::communication::CommunicationData;
 use crate::iowarrior::Peripheral;
 use crate::iowarrior::{Report, UsedPin};
 use std::fmt;
 
 #[derive(Debug)]
 pub struct IOWarriorMutData {
+    pub communication_data: CommunicationData,
     pub pins_in_use: Vec<UsedPin>,
     pub dangling_peripherals: Vec<Peripheral>,
     pub pins_write_report: Report,

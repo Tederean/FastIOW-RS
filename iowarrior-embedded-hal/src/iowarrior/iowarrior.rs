@@ -35,17 +35,17 @@ impl IOWarrior {
 
     #[inline]
     pub fn get_revision(&self) -> u16 {
-        self.data.communication_data.device_revision
+        self.data.device_revision
     }
 
     #[inline]
     pub fn get_type(&self) -> IOWarriorType {
-        self.data.communication_data.device_type
+        self.data.device_type
     }
 
     #[inline]
     pub fn get_serial_number(&self) -> String {
-        self.data.communication_data.device_serial.clone()
+        self.data.device_serial.clone()
     }
 
     #[inline]

@@ -1,4 +1,3 @@
-use crate::iowarrior::IOWarriorType;
 use hidapi::HidDevice;
 use std::fmt;
 
@@ -25,9 +24,6 @@ impl fmt::Display for USBPipes {
 #[derive(Debug)]
 pub struct CommunicationData {
     pub usb_pipes: USBPipes,
-    pub device_revision: u16,
-    pub device_serial: String,
-    pub device_type: IOWarriorType,
 }
 
 impl fmt::Display for CommunicationData {

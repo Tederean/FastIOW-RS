@@ -42,13 +42,15 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
     ) -> Result<(), Self::Error> {
         i2c_service::check_valid_7bit_address(address)?;
 
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
         for operation in operations {
             match operation {
                 embedded_hal::i2c::Operation::Read(buffer) => {
-                    i2c_service::read_data(&self.data, address, buffer)?;
+                    i2c_service::read_data(&self.data, &mut mut_data, address, buffer)?;
                 }
                 embedded_hal::i2c::Operation::Write(buffer) => {
-                    i2c_service::write_data(&self.data, address, buffer)?;
+                    i2c_service::write_data(&self.data, &mut mut_data, address, buffer)?;
                 }
             }
         }
@@ -65,7 +67,9 @@ impl embedded_hal_0::blocking::i2c::Write for I2C {
     fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         i2c_service::check_valid_7bit_address(address)?;
 
-        i2c_service::write_data(&self.data, address, bytes)
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        i2c_service::write_data(&self.data, &mut mut_data, address, bytes)
     }
 }
 
@@ -77,7 +81,9 @@ impl embedded_hal_0::blocking::i2c::Read for I2C {
     fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         i2c_service::check_valid_7bit_address(address)?;
 
-        i2c_service::read_data(&self.data, address, buffer)
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        i2c_service::read_data(&self.data, &mut mut_data, address, buffer)
     }
 }
 
@@ -94,8 +100,10 @@ impl embedded_hal_0::blocking::i2c::WriteRead for I2C {
     ) -> Result<(), Self::Error> {
         i2c_service::check_valid_7bit_address(address)?;
 
-        i2c_service::write_data(&self.data, address, bytes)?;
-        i2c_service::read_data(&self.data, address, buffer)
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+
+        i2c_service::write_data(&self.data, &mut mut_data, address, bytes)?;
+        i2c_service::read_data(&self.data, &mut mut_data, address, buffer)
     }
 }
 

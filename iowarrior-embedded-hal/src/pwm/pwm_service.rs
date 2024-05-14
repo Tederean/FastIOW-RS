@@ -17,13 +17,17 @@ pub fn enable_pwm(
 ) -> Result<(), PeripheralSetupError> {
     peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
 
-    send_enable_pwm(&data, pwm_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+    send_enable_pwm(&data, mut_data, pwm_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
 
     peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM);
     Ok(())
 }
 
-fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidError> {
+fn send_enable_pwm(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pwm_data: &PWMData,
+) -> Result<(), HidError> {
     {
         let mut report = data.create_report(Pipe::SpecialMode);
 
@@ -35,7 +39,7 @@ fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidEr
             write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
         }
 
-        communication_service::write_report(&data, &mut report)?;
+        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
     }
 
     if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
@@ -52,7 +56,7 @@ fn send_enable_pwm(data: &IOWarriorData, pwm_data: &PWMData) -> Result<(), HidEr
         write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
         write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
 
-        communication_service::write_report(&data, &mut report)?;
+        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
     }
 
     Ok(())
@@ -164,21 +168,21 @@ pub fn get_pwm_type(
     data: &Rc<IOWarriorData>,
     channel_mode: ChannelMode,
 ) -> Option<IOWarriorPWMType> {
-    if data.communication_data.device_type == IOWarriorType::IOWarrior100 {
+    if data.device_type == IOWarriorType::IOWarrior100 {
         return Some(IOWarriorPWMType::IOWarrior100);
     }
 
-    if data.communication_data.device_type == IOWarriorType::IOWarrior56
-        || data.communication_data.device_type == IOWarriorType::IOWarrior56Dongle
+    if data.device_type == IOWarriorType::IOWarrior56
+        || data.device_type == IOWarriorType::IOWarrior56Dongle
     {
-        if data.communication_data.device_revision >= 0x2000
-            && data.communication_data.device_revision < 0x2002
+        if data.device_revision >= 0x2000
+            && data.device_revision < 0x2002
             && channel_mode == ChannelMode::Single
         {
             return Some(IOWarriorPWMType::IOWarrior56);
         }
 
-        if data.communication_data.device_revision >= 0x2002
+        if data.device_revision >= 0x2002
             && (channel_mode == ChannelMode::Single || channel_mode == ChannelMode::Dual)
         {
             return Some(IOWarriorPWMType::IOWarrior56);

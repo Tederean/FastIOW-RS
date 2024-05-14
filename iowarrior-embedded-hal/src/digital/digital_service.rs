@@ -15,13 +15,13 @@ pub fn enable_gpio(
     pin_state: PinState,
     pin: u8,
 ) -> Result<(), PinSetupError> {
-    if data.communication_data.device_type == IOWarriorType::IOWarrior28Dongle
-        || data.communication_data.device_type == IOWarriorType::IOWarrior56Dongle
+    if data.device_type == IOWarriorType::IOWarrior28Dongle
+        || data.device_type == IOWarriorType::IOWarrior56Dongle
     {
         return Err(PinSetupError::NotSupported);
     }
 
-    if !(data.is_valid_gpio)(pin) {
+    if !get_is_valid_gpio(data.device_type, pin) {
         return Err(PinSetupError::PinNotExisting);
     }
 
@@ -55,8 +55,11 @@ pub fn is_pin_input_state(
     pin: u8,
     expected_pin_state: PinState,
 ) -> Result<bool, PinError> {
-    let report = communication_service::read_report_non_blocking(&data, Pipe::IOPins)
-        .map_err(|x| PinError::ErrorUSB(x))?;
+    let report = communication_service::read_report_non_blocking(
+        &mut mut_data.communication_data,
+        data.create_report(Pipe::IOPins),
+    )
+    .map_err(|x| PinError::ErrorUSB(x))?;
 
     match report {
         None => {}
@@ -101,4 +104,19 @@ pub fn is_pin_output_state(
         PinState::Low => !value,
         PinState::High => value,
     })
+}
+
+fn get_is_valid_gpio(device_type: IOWarriorType, pin: u8) -> bool {
+    match device_type {
+        IOWarriorType::IOWarrior40 => pin < 32,
+        IOWarriorType::IOWarrior24 => pin < 16,
+        IOWarriorType::IOWarrior24PowerVampire => pin < 12,
+        IOWarriorType::IOWarrior28 => pin < 18 || pin == 31,
+        IOWarriorType::IOWarrior28Dongle | IOWarriorType::IOWarrior56Dongle => false,
+        IOWarriorType::IOWarrior28L => pin < 18,
+        IOWarriorType::IOWarrior56 => pin < 49 || pin == 55,
+        IOWarriorType::IOWarrior100 => {
+            pin < 11 || (pin > 15 && pin < 84) || pin == 86 || pin == 89 || pin == 90
+        }
+    }
 }
