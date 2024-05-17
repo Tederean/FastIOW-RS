@@ -3,9 +3,9 @@ use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use hidapi::HidError::IoError;
 use hidapi::{DeviceInfo, HidApi, HidDevice};
 use itertools::Itertools;
+use std::os::windows::io::AsRawHandle;
 use windows::Win32::Devices::HumanInterfaceDevice::{HidD_GetAttributes, HIDD_ATTRIBUTES};
 use windows::Win32::Foundation::{BOOLEAN, HWND};
-use std::os::windows::io::AsRawHandle;
 
 const VENDOR_IDENTIFIER: u16 = 1984;
 

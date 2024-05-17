@@ -1,4 +1,4 @@
-use crate::digital::{digital_service, PinError, PinSetupError};
+use crate::digital::{digital_service, PinError};
 use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData};
 use embedded_hal::digital::PinState;
 use std::cell::RefCell;
@@ -7,9 +7,9 @@ use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct OutputPin {
-    data: Rc<IOWarriorData>,
-    mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
-    pin: u8,
+    pub(crate) data: Rc<IOWarriorData>,
+    pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    pub(crate) pin: u8,
 }
 
 impl embedded_hal::digital::ErrorType for OutputPin {
@@ -122,27 +122,5 @@ impl Drop for OutputPin {
             &mut self.mut_data_refcell.borrow_mut(),
             self.pin,
         );
-    }
-}
-
-impl OutputPin {
-    pub(crate) fn new(
-        data: &Rc<IOWarriorData>,
-        mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-        pin: u8,
-        initial_pin_state: PinState,
-    ) -> Result<OutputPin, PinSetupError> {
-        digital_service::enable_gpio(
-            &data,
-            &mut mut_data_refcell.borrow_mut(),
-            initial_pin_state,
-            pin,
-        )?;
-
-        Ok(OutputPin {
-            pin,
-            data: data.clone(),
-            mut_data_refcell: mut_data_refcell.clone(),
-        })
     }
 }

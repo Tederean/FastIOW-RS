@@ -6,26 +6,130 @@ use crate::iowarrior::{
     Report, ReportId,
 };
 use crate::spi::spi_data::{IOWarriorSPIType, SPIData};
-use crate::spi::{SPIConfig, SPIError, SPIMode};
+use crate::spi::{SPIConfig, SPIError, SPIMode, SPI};
 use crate::{iowarrior::IOWarriorType, pin};
 use hidapi::HidError;
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 use std::cmp::Ordering;
 use std::iter;
 use std::rc::Rc;
 
-pub fn enable_spi(
-    data: &IOWarriorData,
-    mut_data: &mut RefMut<IOWarriorMutData>,
-    spi_data: &SPIData,
-    spi_pins: &Vec<u8>,
-) -> Result<(), PeripheralSetupError> {
-    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::SPI, &spi_pins)?;
+pub fn new(
+    data: &Rc<IOWarriorData>,
+    mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
+    spi_config: SPIConfig,
+) -> Result<SPI, PeripheralSetupError> {
+    match get_spi_type(&data) {
+        None => Err(PeripheralSetupError::NotSupported),
+        Some(spi_type) => {
+            let mut mut_data = mut_data_refcell.borrow_mut();
 
-    send_enable_spi(&data, mut_data, &spi_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+            if spi_type == IOWarriorSPIType::IOWarrior56
+                && peripheral_service::get_used_pins(&mut mut_data, Peripheral::PWM).len() > 1
+            {
+                return Err(PeripheralSetupError::HardwareBlocked(Peripheral::PWM));
+            }
 
-    peripheral_service::post_enable(mut_data, &spi_pins, Peripheral::SPI);
-    Ok(())
+            let spi_pins = get_spi_pins(spi_type);
+            let spi_data = calculate_spi_data(spi_type, spi_config);
+
+            peripheral_service::precheck_peripheral(
+                &data,
+                &mut mut_data,
+                Peripheral::SPI,
+                &spi_pins,
+            )?;
+
+            send_enable_spi(&data, &mut mut_data, &spi_data)
+                .map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+
+            peripheral_service::post_enable(&mut mut_data, &spi_pins, Peripheral::SPI);
+
+            Ok(SPI {
+                data: data.clone(),
+                mut_data_refcell: mut_data_refcell.clone(),
+                spi_data,
+            })
+        }
+    }
+}
+
+fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
+    match data.device_type {
+        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => {
+            Some(IOWarriorSPIType::IOWarrior24)
+        }
+        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
+            Some(IOWarriorSPIType::IOWarrior56)
+        }
+        IOWarriorType::IOWarrior100
+        | IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior28
+        | IOWarriorType::IOWarrior28Dongle
+        | IOWarriorType::IOWarrior28L => None,
+    }
+}
+
+fn get_spi_pins(spi_type: IOWarriorSPIType) -> Vec<u8> {
+    match spi_type {
+        IOWarriorSPIType::IOWarrior24 => {
+            vec![pin!(0, 3), pin!(0, 4), pin!(0, 5), pin!(0, 6), pin!(0, 7)]
+        }
+        IOWarriorSPIType::IOWarrior56 => {
+            vec![pin!(5, 3), pin!(5, 1), pin!(5, 2), pin!(5, 4), pin!(5, 0)]
+        }
+    }
+}
+
+fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
+    let mut data = SPIData {
+        spi_type,
+        spi_config,
+        calculated_frequency_hz: u32::MAX,
+        iow24_mode: 0,
+        iow56_clock_divider: 0,
+    };
+
+    match spi_type {
+        IOWarriorSPIType::IOWarrior24 => calculate_iow24_data(&mut data),
+        IOWarriorSPIType::IOWarrior56 => calculate_iow56_data(&mut data),
+    }
+
+    data
+}
+
+fn calculate_iow24_data(spi_data: &mut SPIData) {
+    for (index, value) in [2_000_000u32, 1_000_000u32, 500_000u32, 62_500u32]
+        .iter()
+        .enumerate()
+    {
+        if spi_data
+            .spi_config
+            .requested_frequency_hz
+            .abs_diff(value.clone())
+            < spi_data
+                .spi_config
+                .requested_frequency_hz
+                .abs_diff(spi_data.calculated_frequency_hz)
+        {
+            spi_data.calculated_frequency_hz = value.clone();
+            spi_data.iow24_mode = index as u8;
+        }
+    }
+}
+
+fn calculate_iow56_data(spi_data: &mut SPIData) {
+    let requested_frequency_hz = std::cmp::max(1, spi_data.spi_config.requested_frequency_hz);
+
+    spi_data.iow56_clock_divider = {
+        let mut clock_divider = (24_000_000 / requested_frequency_hz) - 1u32;
+
+        clock_divider = std::cmp::max(clock_divider, 2);
+        clock_divider = std::cmp::min(clock_divider, 255);
+        clock_divider as u8
+    };
+
+    spi_data.calculated_frequency_hz = 24_000_000 / (spi_data.iow56_clock_divider as u32 + 1u32);
 }
 
 fn send_enable_spi(
@@ -93,57 +197,6 @@ fn send_enable_spi(
     }
 
     communication_service::write_report(&mut mut_data.communication_data, &mut report)
-}
-
-pub fn calculate_spi_data(spi_type: IOWarriorSPIType, spi_config: SPIConfig) -> SPIData {
-    let mut data = SPIData {
-        spi_type,
-        spi_config,
-        calculated_frequency_hz: u32::MAX,
-        iow24_mode: 0,
-        iow56_clock_divider: 0,
-    };
-
-    match spi_type {
-        IOWarriorSPIType::IOWarrior24 => calculate_iow24_data(&mut data),
-        IOWarriorSPIType::IOWarrior56 => calculate_iow56_data(&mut data),
-    }
-
-    data
-}
-
-fn calculate_iow24_data(spi_data: &mut SPIData) {
-    for (index, value) in [2_000_000u32, 1_000_000u32, 500_000u32, 62_500u32]
-        .iter()
-        .enumerate()
-    {
-        if spi_data
-            .spi_config
-            .requested_frequency_hz
-            .abs_diff(value.clone())
-            < spi_data
-                .spi_config
-                .requested_frequency_hz
-                .abs_diff(spi_data.calculated_frequency_hz)
-        {
-            spi_data.calculated_frequency_hz = value.clone();
-            spi_data.iow24_mode = index as u8;
-        }
-    }
-}
-
-fn calculate_iow56_data(spi_data: &mut SPIData) {
-    let requested_frequency_hz = std::cmp::max(1, spi_data.spi_config.requested_frequency_hz);
-
-    spi_data.iow56_clock_divider = {
-        let mut clock_divider = (24_000_000 / requested_frequency_hz) - 1u32;
-
-        clock_divider = std::cmp::max(clock_divider, 2);
-        clock_divider = std::cmp::min(clock_divider, 255);
-        clock_divider as u8
-    };
-
-    spi_data.calculated_frequency_hz = 24_000_000 / (spi_data.iow56_clock_divider as u32 + 1u32);
 }
 
 pub fn read_data(
@@ -395,32 +448,5 @@ fn read_report(
             Ok(())
         }
         false => Err(SPIError::IOErrorSPI),
-    }
-}
-
-pub fn get_spi_type(data: &Rc<IOWarriorData>) -> Option<IOWarriorSPIType> {
-    match data.device_type {
-        IOWarriorType::IOWarrior24 | IOWarriorType::IOWarrior24PowerVampire => {
-            Some(IOWarriorSPIType::IOWarrior24)
-        }
-        IOWarriorType::IOWarrior56 | IOWarriorType::IOWarrior56Dongle => {
-            Some(IOWarriorSPIType::IOWarrior56)
-        }
-        IOWarriorType::IOWarrior100
-        | IOWarriorType::IOWarrior40
-        | IOWarriorType::IOWarrior28
-        | IOWarriorType::IOWarrior28Dongle
-        | IOWarriorType::IOWarrior28L => None,
-    }
-}
-
-pub fn get_spi_pins(spi_type: IOWarriorSPIType) -> Vec<u8> {
-    match spi_type {
-        IOWarriorSPIType::IOWarrior24 => {
-            vec![pin!(0, 3), pin!(0, 4), pin!(0, 5), pin!(0, 6), pin!(0, 7)]
-        }
-        IOWarriorSPIType::IOWarrior56 => {
-            vec![pin!(5, 3), pin!(5, 1), pin!(5, 2), pin!(5, 4), pin!(5, 0)]
-        }
     }
 }

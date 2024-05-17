@@ -39,10 +39,10 @@ pub fn create_iowarrior(
         communication_data,
     };
 
-    Ok(IOWarrior::new(
-        Rc::new(data),
-        Rc::new(RefCell::new(mut_data)),
-    ))
+    Ok(IOWarrior {
+        data: Rc::new(data),
+        mut_data_refcell: Rc::new(RefCell::new(mut_data)),
+    })
 }
 
 fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {

@@ -1,6 +1,6 @@
+use crate::iowarrior::Peripheral;
 use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData};
-use crate::iowarrior::{Peripheral, PeripheralSetupError};
-use crate::spi::{spi_service, IOWarriorSPIType, SPIConfig, SPIData, SPIError};
+use crate::spi::{spi_service, SPIConfig, SPIData, SPIError};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
@@ -8,9 +8,9 @@ use std::time::Duration;
 
 #[derive(Debug)]
 pub struct SPI {
-    data: Rc<IOWarriorData>,
-    mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
-    spi_data: SPIData,
+    pub(crate) data: Rc<IOWarriorData>,
+    pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    pub(crate) spi_data: SPIData,
 }
 
 impl fmt::Display for SPI {
@@ -252,41 +252,13 @@ impl embedded_hal::spi::SpiDevice for SPI {
 }
 
 impl SPI {
-    pub(crate) fn new(
-        data: &Rc<IOWarriorData>,
-        mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-        spi_config: SPIConfig,
-    ) -> Result<SPI, PeripheralSetupError> {
-        match spi_service::get_spi_type(&data) {
-            None => Err(PeripheralSetupError::NotSupported),
-            Some(spi_type) => {
-                let mut mut_data = mut_data_refcell.borrow_mut();
-
-                if spi_type == IOWarriorSPIType::IOWarrior56
-                    && peripheral_service::get_used_pins(&mut mut_data, Peripheral::PWM).len() > 1
-                {
-                    return Err(PeripheralSetupError::HardwareBlocked(Peripheral::PWM));
-                }
-
-                let spi_pins = spi_service::get_spi_pins(spi_type);
-                let spi_data = spi_service::calculate_spi_data(spi_type, spi_config);
-
-                spi_service::enable_spi(&data, &mut mut_data, &spi_data, &spi_pins)?;
-
-                Ok(SPI {
-                    data: data.clone(),
-                    mut_data_refcell: mut_data_refcell.clone(),
-                    spi_data,
-                })
-            }
-        }
+    #[inline]
+    pub fn get_config(&self) -> SPIConfig {
+        self.spi_data.spi_config.clone()
     }
 
     #[inline]
-    pub fn get_config(&self) -> (SPIConfig, u32) {
-        (
-            self.spi_data.spi_config.clone(),
-            self.spi_data.calculated_frequency_hz,
-        )
+    pub fn get_frequency_hz(&self) -> u32 {
+        self.spi_data.calculated_frequency_hz
     }
 }

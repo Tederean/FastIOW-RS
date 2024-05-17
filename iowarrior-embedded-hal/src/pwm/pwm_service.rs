@@ -3,99 +3,115 @@ use crate::iowarrior::{
     peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
     ReportId,
 };
-use crate::pwm::{ChannelMode, IOWarriorPWMType, PWMConfig, PWMData};
+use crate::pwm::{IOWarriorPWMType, PWMChannel, PWMConfig, PWMData, PWM};
 use crate::{iowarrior::IOWarriorType, pin};
 use hidapi::HidError;
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-pub fn enable_pwm(
-    data: &IOWarriorData,
-    mut_data: &mut RefMut<IOWarriorMutData>,
-    pwm_data: &PWMData,
-    pwm_pins: &Vec<u8>,
-) -> Result<(), PeripheralSetupError> {
-    peripheral_service::precheck_peripheral(&data, mut_data, Peripheral::PWM, &pwm_pins)?;
+pub fn new(
+    data: &Rc<IOWarriorData>,
+    mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
+    pwm_config: PWMConfig,
+) -> Result<Vec<PWM>, PeripheralSetupError> {
+    match get_pwm_type(&data, pwm_config.channel_mode) {
+        None => Err(PeripheralSetupError::NotSupported),
+        Some(pwm_type) => {
+            let mut mut_data = mut_data_refcell.borrow_mut();
 
-    send_enable_pwm(&data, mut_data, pwm_data).map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+            if pwm_type == IOWarriorPWMType::IOWarrior56
+                && pwm_config.channel_mode == PWMChannel::Second
+                && peripheral_service::get_used_pins(&mut mut_data, Peripheral::SPI).len() > 0
+            {
+                return Err(PeripheralSetupError::HardwareBlocked(Peripheral::SPI));
+            }
 
-    peripheral_service::post_enable(mut_data, pwm_pins, Peripheral::PWM);
-    Ok(())
+            let pwm_pins = get_pwm_pins(pwm_type, pwm_config.channel_mode);
+            let pwm_data = calculate_pwm_data(pwm_type, pwm_config);
+
+            peripheral_service::precheck_peripheral(
+                &data,
+                &mut mut_data,
+                Peripheral::PWM,
+                &pwm_pins,
+            )?;
+
+            send_enable_pwm(&data, &mut mut_data, &pwm_data)
+                .map_err(|x| PeripheralSetupError::ErrorUSB(x))?;
+
+            peripheral_service::post_enable(&mut mut_data, &pwm_pins, Peripheral::PWM);
+
+            let pwm_data_refcell = Rc::new(RefCell::new(pwm_data));
+
+            Ok((1..pwm_pins.len())
+                .map(|index| {
+                    let channel = match index {
+                        0 => PWMChannel::First,
+                        1 => PWMChannel::Second,
+                        2 => PWMChannel::Third,
+                        3 => PWMChannel::Fourth,
+                        _ => panic!("Invalid channel."),
+                    };
+
+                    PWM {
+                        data: data.clone(),
+                        mut_data_refcell: mut_data_refcell.clone(),
+                        pwm_data_refcell: pwm_data_refcell.clone(),
+                        channel,
+                    }
+                })
+                .collect())
+        }
+    }
 }
 
-fn send_enable_pwm(
-    data: &IOWarriorData,
-    mut_data: &mut RefMut<IOWarriorMutData>,
-    pwm_data: &PWMData,
-) -> Result<(), HidError> {
+fn get_pwm_type(data: &Rc<IOWarriorData>, channel_mode: PWMChannel) -> Option<IOWarriorPWMType> {
+    if data.device_type == IOWarriorType::IOWarrior100 {
+        return Some(IOWarriorPWMType::IOWarrior100);
+    }
+
+    if data.device_type == IOWarriorType::IOWarrior56
+        || data.device_type == IOWarriorType::IOWarrior56Dongle
     {
-        let mut report = data.create_report(Pipe::SpecialMode);
-
-        report.buffer[0] = ReportId::PwmSetup.get_value();
-        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
-
-        if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior56 {
-            write_iow56_pwm_channel(&mut report.buffer[2..7], &pwm_data, ChannelMode::Single);
-            write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, ChannelMode::Dual);
+        if data.device_revision >= 0x2000
+            && data.device_revision < 0x2002
+            && channel_mode == PWMChannel::First
+        {
+            return Some(IOWarriorPWMType::IOWarrior56);
         }
 
-        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
+        if data.device_revision >= 0x2002
+            && (channel_mode == PWMChannel::First || channel_mode == PWMChannel::Second)
+        {
+            return Some(IOWarriorPWMType::IOWarrior56);
+        }
     }
 
-    if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
-        let mut report = data.create_report(Pipe::SpecialMode);
-
-        report.buffer[0] = ReportId::PwmParameters.get_value();
-        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
-
-        write_u16(&mut report.buffer[2..4], pwm_data.iow100_prescaler);
-        write_u16(&mut report.buffer[4..6], pwm_data.iow100_cycle);
-
-        write_iow100_pwm_channel(&mut report.buffer[6..8], &pwm_data, ChannelMode::Single);
-        write_iow100_pwm_channel(&mut report.buffer[8..10], &pwm_data, ChannelMode::Dual);
-        write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, ChannelMode::Triple);
-        write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, ChannelMode::Quad);
-
-        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
-    }
-
-    Ok(())
+    return None;
 }
 
-fn write_iow100_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
-    let iow100_ch_register = match channel {
-        ChannelMode::Single => pwm_data.duty_cycle_0,
-        ChannelMode::Dual => pwm_data.duty_cycle_1,
-        ChannelMode::Triple => pwm_data.duty_cycle_2,
-        ChannelMode::Quad => pwm_data.duty_cycle_3,
+fn get_pwm_pins(pwm_type: IOWarriorPWMType, channel_mode: PWMChannel) -> Vec<u8> {
+    let available_pwm_pins: Vec<u8> = match pwm_type {
+        IOWarriorPWMType::IOWarrior56 => {
+            vec![pin!(6, 7), pin!(6, 0)]
+        }
+        IOWarriorPWMType::IOWarrior100 => {
+            vec![pin!(8, 3), pin!(8, 4), pin!(8, 5), pin!(8, 6)]
+        }
     };
 
-    write_u16(&mut bytes[0..2], iow100_ch_register);
+    available_pwm_pins
+        .iter()
+        .take(channel_mode.get_value() as usize)
+        .map(|x| x.clone())
+        .collect()
 }
 
-fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: ChannelMode) {
-    let iow56_pls_register = match channel {
-        ChannelMode::Single => pwm_data.duty_cycle_0,
-        ChannelMode::Dual => pwm_data.duty_cycle_1,
-        ChannelMode::Triple => pwm_data.duty_cycle_2,
-        ChannelMode::Quad => pwm_data.duty_cycle_3,
-    };
-
-    write_u16(&mut bytes[0..2], pwm_data.iow56_per);
-    write_u16(&mut bytes[2..4], iow56_pls_register);
-    bytes[4] = pwm_data.iow56_clock_source;
-}
-
-#[inline]
-fn write_u16(bytes: &mut [u8], value: u16) {
-    bytes[0] = (value & 0xFF) as u8; // LSB
-    bytes[1] = (value >> 8) as u8; // MSB
-}
-
-pub fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
+fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
     let mut data = PWMData {
         pwm_type,
         pwm_config,
+        pins_counter: pwm_config.channel_mode.get_value(),
         iow56_per: 0,
         iow56_clock_source: 0,
         iow100_prescaler: 0,
@@ -164,47 +180,71 @@ fn calculate_iow100_data(pwm_data: &mut PWMData) {
     pwm_data.iow100_cycle = max_duty_cycle;
 }
 
-pub fn get_pwm_type(
-    data: &Rc<IOWarriorData>,
-    channel_mode: ChannelMode,
-) -> Option<IOWarriorPWMType> {
-    if data.device_type == IOWarriorType::IOWarrior100 {
-        return Some(IOWarriorPWMType::IOWarrior100);
-    }
-
-    if data.device_type == IOWarriorType::IOWarrior56
-        || data.device_type == IOWarriorType::IOWarrior56Dongle
+pub fn send_enable_pwm(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pwm_data: &PWMData,
+) -> Result<(), HidError> {
     {
-        if data.device_revision >= 0x2000
-            && data.device_revision < 0x2002
-            && channel_mode == ChannelMode::Single
-        {
-            return Some(IOWarriorPWMType::IOWarrior56);
+        let mut report = data.create_report(Pipe::SpecialMode);
+
+        report.buffer[0] = ReportId::PwmSetup.get_value();
+        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+
+        if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior56 {
+            write_iow56_pwm_channel(&mut report.buffer[2..7], &pwm_data, PWMChannel::First);
+            write_iow56_pwm_channel(&mut report.buffer[7..12], &pwm_data, PWMChannel::Second);
         }
 
-        if data.device_revision >= 0x2002
-            && (channel_mode == ChannelMode::Single || channel_mode == ChannelMode::Dual)
-        {
-            return Some(IOWarriorPWMType::IOWarrior56);
-        }
+        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
     }
 
-    return None;
+    if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior100 {
+        let mut report = data.create_report(Pipe::SpecialMode);
+
+        report.buffer[0] = ReportId::PwmParameters.get_value();
+        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+
+        write_u16(&mut report.buffer[2..4], pwm_data.iow100_prescaler);
+        write_u16(&mut report.buffer[4..6], pwm_data.iow100_cycle);
+
+        write_iow100_pwm_channel(&mut report.buffer[6..8], &pwm_data, PWMChannel::First);
+        write_iow100_pwm_channel(&mut report.buffer[8..10], &pwm_data, PWMChannel::Second);
+        write_iow100_pwm_channel(&mut report.buffer[10..12], &pwm_data, PWMChannel::Third);
+        write_iow100_pwm_channel(&mut report.buffer[12..14], &pwm_data, PWMChannel::Fourth);
+
+        communication_service::write_report(&mut mut_data.communication_data, &mut report)?;
+    }
+
+    Ok(())
 }
 
-pub fn get_pwm_pins(pwm_type: IOWarriorPWMType, channel_mode: ChannelMode) -> Vec<u8> {
-    let available_pwm_pins: Vec<u8> = match pwm_type {
-        IOWarriorPWMType::IOWarrior56 => {
-            vec![pin!(6, 7), pin!(6, 0)]
-        }
-        IOWarriorPWMType::IOWarrior100 => {
-            vec![pin!(8, 3), pin!(8, 4), pin!(8, 5), pin!(8, 6)]
-        }
+fn write_iow100_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: PWMChannel) {
+    let iow100_ch_register = match channel {
+        PWMChannel::First => pwm_data.duty_cycle_0,
+        PWMChannel::Second => pwm_data.duty_cycle_1,
+        PWMChannel::Third => pwm_data.duty_cycle_2,
+        PWMChannel::Fourth => pwm_data.duty_cycle_3,
     };
 
-    available_pwm_pins
-        .iter()
-        .take(channel_mode.get_value() as usize)
-        .map(|x| x.clone())
-        .collect()
+    write_u16(&mut bytes[0..2], iow100_ch_register);
+}
+
+fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: PWMChannel) {
+    let iow56_pls_register = match channel {
+        PWMChannel::First => pwm_data.duty_cycle_0,
+        PWMChannel::Second => pwm_data.duty_cycle_1,
+        PWMChannel::Third => pwm_data.duty_cycle_2,
+        PWMChannel::Fourth => pwm_data.duty_cycle_3,
+    };
+
+    write_u16(&mut bytes[0..2], pwm_data.iow56_per);
+    write_u16(&mut bytes[2..4], iow56_pls_register);
+    bytes[4] = pwm_data.iow56_clock_source;
+}
+
+#[inline]
+fn write_u16(bytes: &mut [u8], value: u16) {
+    bytes[0] = (value & 0xFF) as u8; // LSB
+    bytes[1] = (value >> 8) as u8; // MSB
 }

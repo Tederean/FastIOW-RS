@@ -1,15 +1,48 @@
 use crate::bits::Bit;
 use crate::bits::Bitmasking;
 use crate::communication::communication_service;
-use crate::digital::{PinError, PinSetupError};
+use crate::digital::{InputPin, OutputPin, PinError, PinSetupError};
 use crate::iowarrior::{
     peripheral_service, IOWarriorData, IOWarriorMutData, IOWarriorType, Pipe, UsedPin,
 };
 use embedded_hal::digital::PinState;
-use std::cell::RefMut;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
-pub fn enable_gpio(
+pub fn new_input(
+    data: &Rc<IOWarriorData>,
+    mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
+    pin: u8,
+) -> Result<InputPin, PinSetupError> {
+    let mut mut_data = mut_data_refcell.borrow_mut();
+
+    enable_gpio(&data, &mut mut_data, PinState::High, pin)?;
+
+    Ok(InputPin {
+        pin,
+        data: data.clone(),
+        mut_data_refcell: mut_data_refcell.clone(),
+    })
+}
+
+pub fn new_output(
+    data: &Rc<IOWarriorData>,
+    mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
+    pin_state: PinState,
+    pin: u8,
+) -> Result<OutputPin, PinSetupError> {
+    let mut mut_data = mut_data_refcell.borrow_mut();
+
+    enable_gpio(&data, &mut mut_data, pin_state, pin)?;
+
+    Ok(OutputPin {
+        pin,
+        data: data.clone(),
+        mut_data_refcell: mut_data_refcell.clone(),
+    })
+}
+
+fn enable_gpio(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
     pin_state: PinState,

@@ -1,16 +1,14 @@
 use crate::i2c::{i2c_service, I2CConfig, I2CError};
-use crate::iowarrior::{
-    peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError,
-};
+use crate::iowarrior::{peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral};
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct I2C {
-    data: Rc<IOWarriorData>,
-    mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
-    i2c_config: I2CConfig,
+    pub(crate) data: Rc<IOWarriorData>,
+    pub(crate) mut_data_refcell: Rc<RefCell<IOWarriorMutData>>,
+    pub(crate) i2c_config: I2CConfig,
 }
 
 impl fmt::Display for I2C {
@@ -35,13 +33,12 @@ impl embedded_hal::i2c::ErrorType for I2C {
 }
 
 impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2C {
+    #[inline]
     fn transaction(
         &mut self,
         address: embedded_hal::i2c::SevenBitAddress,
         operations: &mut [embedded_hal::i2c::Operation],
     ) -> Result<(), Self::Error> {
-        i2c_service::check_valid_7bit_address(address)?;
-
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
         for operation in operations {
@@ -65,11 +62,12 @@ impl embedded_hal_0::blocking::i2c::Write for I2C {
 
     #[inline]
     fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        i2c_service::check_valid_7bit_address(address)?;
-
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        i2c_service::write_data(&self.data, &mut mut_data, address, bytes)
+        i2c_service::write_data(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            address,
+            bytes,
+        )
     }
 }
 
@@ -79,11 +77,12 @@ impl embedded_hal_0::blocking::i2c::Read for I2C {
 
     #[inline]
     fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        i2c_service::check_valid_7bit_address(address)?;
-
-        let mut mut_data = self.mut_data_refcell.borrow_mut();
-
-        i2c_service::read_data(&self.data, &mut mut_data, address, buffer)
+        i2c_service::read_data(
+            &self.data,
+            &mut self.mut_data_refcell.borrow_mut(),
+            address,
+            buffer,
+        )
     }
 }
 
@@ -98,8 +97,6 @@ impl embedded_hal_0::blocking::i2c::WriteRead for I2C {
         bytes: &[u8],
         buffer: &mut [u8],
     ) -> Result<(), Self::Error> {
-        i2c_service::check_valid_7bit_address(address)?;
-
         let mut mut_data = self.mut_data_refcell.borrow_mut();
 
         i2c_service::write_data(&self.data, &mut mut_data, address, bytes)?;
@@ -108,20 +105,6 @@ impl embedded_hal_0::blocking::i2c::WriteRead for I2C {
 }
 
 impl I2C {
-    pub(crate) fn new(
-        data: &Rc<IOWarriorData>,
-        mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
-        i2c_config: I2CConfig,
-    ) -> Result<I2C, PeripheralSetupError> {
-        i2c_service::enable_i2c(&data, &mut mut_data_refcell.borrow_mut(), i2c_config)?;
-
-        Ok(I2C {
-            data: data.clone(),
-            mut_data_refcell: mut_data_refcell.clone(),
-            i2c_config,
-        })
-    }
-
     #[inline]
     pub fn get_config(&self) -> I2CConfig {
         self.i2c_config

@@ -5,6 +5,7 @@ use std::fmt;
 pub struct PWMData {
     pub pwm_type: IOWarriorPWMType,
     pub pwm_config: PWMConfig,
+    pub pins_counter: u8,
     pub max_duty_cycle: u16,
     pub calculated_frequency_hz: u32,
     pub iow56_clock_source: u8,
