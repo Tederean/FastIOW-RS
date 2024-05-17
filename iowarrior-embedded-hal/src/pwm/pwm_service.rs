@@ -229,14 +229,11 @@ fn write_u16(bytes: &mut [u8], value: u16) {
     bytes[1] = (value >> 8) as u8; // MSB
 }
 
-pub fn set_duty_cycle(
+#[inline]
+pub fn update_duty_cycle(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
-    pwm_data: &mut RefMut<PWMData>,
-    channel: PWMChannel,
-    duty: u16,
+    pwm_data: &PWMData,
 ) -> Result<(), PWMError> {
-    pwm_data.set_duty_cycle(channel, duty);
-
     send_enable_pwm(data, mut_data, pwm_data).map_err(|x| PWMError::ErrorUSB(x))
 }

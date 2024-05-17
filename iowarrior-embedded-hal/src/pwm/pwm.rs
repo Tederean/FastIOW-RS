@@ -50,7 +50,9 @@ impl embedded_hal::pwm::SetDutyCycle for PWM {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
         let mut pwm_data = self.pwm_data_refcell.borrow_mut();
 
-        pwm_service::set_duty_cycle(&self.data, &mut mut_data, &mut pwm_data, self.channel, duty)
+        pwm_data.set_duty_cycle(self.channel, duty);
+
+        pwm_service::update_duty_cycle(&self.data, &mut mut_data, &pwm_data)
     }
 }
 
@@ -79,7 +81,9 @@ impl embedded_hal_0::PwmPin for PWM {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
         let mut pwm_data = self.pwm_data_refcell.borrow_mut();
 
-        _ = pwm_service::set_duty_cycle(&self.data, &mut mut_data, &mut pwm_data, self.channel, duty)
+        pwm_data.set_duty_cycle(self.channel, duty);
+
+        _ = pwm_service::update_duty_cycle(&self.data, &mut mut_data, &pwm_data)
     }
 }
 
