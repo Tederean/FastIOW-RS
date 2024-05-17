@@ -50,15 +50,7 @@ impl embedded_hal::pwm::SetDutyCycle for PWM {
         let mut mut_data = self.mut_data_refcell.borrow_mut();
         let mut pwm_data = self.pwm_data_refcell.borrow_mut();
 
-        match self.channel {
-            PWMChannel::First => pwm_data.duty_cycle_0 = duty,
-            PWMChannel::Second => pwm_data.duty_cycle_1 = duty,
-            PWMChannel::Third => pwm_data.duty_cycle_2 = duty,
-            PWMChannel::Fourth => pwm_data.duty_cycle_3 = duty,
-        }
-
-        pwm_service::send_enable_pwm(&self.data, &mut mut_data, &pwm_data)
-            .map_err(|x| PWMError::ErrorUSB(x))
+        pwm_service::set_duty_cycle(&self.data, &mut mut_data, &mut pwm_data, self.channel, duty)
     }
 }
 
@@ -66,24 +58,28 @@ impl embedded_hal::pwm::SetDutyCycle for PWM {
 impl embedded_hal_0::PwmPin for PWM {
     type Duty = u16;
 
-    fn disable(&mut self) {
-        todo!()
-    }
+    #[inline]
+    fn disable(&mut self) {}
 
-    fn enable(&mut self) {
-        todo!()
-    }
+    #[inline]
+    fn enable(&mut self) {}
 
+    #[inline]
     fn get_duty(&self) -> Self::Duty {
-        todo!()
+        self.pwm_data_refcell.borrow().get_duty_cycle(self.channel)
     }
 
+    #[inline]
     fn get_max_duty(&self) -> Self::Duty {
         self.pwm_data_refcell.borrow().max_duty_cycle
     }
 
+    #[inline]
     fn set_duty(&mut self, duty: Self::Duty) {
-        todo!()
+        let mut mut_data = self.mut_data_refcell.borrow_mut();
+        let mut pwm_data = self.pwm_data_refcell.borrow_mut();
+
+        _ = pwm_service::set_duty_cycle(&self.data, &mut mut_data, &mut pwm_data, self.channel, duty)
     }
 }
 
@@ -101,5 +97,15 @@ impl PWM {
     #[inline]
     pub fn get_channel(&self) -> PWMChannel {
         self.channel
+    }
+
+    #[inline]
+    fn get_duty_cycle(&self) -> u16 {
+        self.pwm_data_refcell.borrow().get_duty_cycle(self.channel)
+    }
+
+    #[inline]
+    fn get_max_duty_cycle(&self) -> u16 {
+        self.pwm_data_refcell.borrow().max_duty_cycle
     }
 }

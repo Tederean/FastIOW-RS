@@ -1,4 +1,4 @@
-use crate::pwm::PWMConfig;
+use crate::pwm::{PWMChannel, PWMConfig};
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -21,6 +21,26 @@ pub struct PWMData {
 impl fmt::Display for PWMData {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
+    }
+}
+
+impl PWMData {
+    pub fn get_duty_cycle(&self, channel: PWMChannel) -> u16 {
+        match channel {
+            PWMChannel::First => self.duty_cycle_0,
+            PWMChannel::Second => self.duty_cycle_1,
+            PWMChannel::Third => self.duty_cycle_2,
+            PWMChannel::Fourth => self.duty_cycle_3,
+        }
+    }
+
+    pub fn set_duty_cycle(&mut self, channel: PWMChannel, duty: u16) {
+        match channel {
+            PWMChannel::First => self.duty_cycle_0 = duty,
+            PWMChannel::Second => self.duty_cycle_1 = duty,
+            PWMChannel::Third => self.duty_cycle_2 = duty,
+            PWMChannel::Fourth => self.duty_cycle_3 = duty,
+        }
     }
 }
 

@@ -3,7 +3,7 @@ use crate::iowarrior::{
     peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
     ReportId,
 };
-use crate::pwm::{IOWarriorPWMType, PWMChannel, PWMConfig, PWMData, PWM};
+use crate::pwm::{IOWarriorPWMType, PWMChannel, PWMConfig, PWMData, PWMError, PWM};
 use crate::{iowarrior::IOWarriorType, pin};
 use hidapi::HidError;
 use std::cell::{RefCell, RefMut};
@@ -44,21 +44,11 @@ pub fn new(
             let pwm_data_refcell = Rc::new(RefCell::new(pwm_data));
 
             Ok((1..pwm_pins.len())
-                .map(|index| {
-                    let channel = match index {
-                        0 => PWMChannel::First,
-                        1 => PWMChannel::Second,
-                        2 => PWMChannel::Third,
-                        3 => PWMChannel::Fourth,
-                        _ => panic!("Invalid channel."),
-                    };
-
-                    PWM {
-                        data: data.clone(),
-                        mut_data_refcell: mut_data_refcell.clone(),
-                        pwm_data_refcell: pwm_data_refcell.clone(),
-                        channel,
-                    }
+                .map(|index| PWM {
+                    data: data.clone(),
+                    mut_data_refcell: mut_data_refcell.clone(),
+                    pwm_data_refcell: pwm_data_refcell.clone(),
+                    channel: PWMChannel::from_u8(index as u8),
                 })
                 .collect())
         }
@@ -180,7 +170,7 @@ fn calculate_iow100_data(pwm_data: &mut PWMData) {
     pwm_data.iow100_cycle = max_duty_cycle;
 }
 
-pub fn send_enable_pwm(
+fn send_enable_pwm(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
     pwm_data: &PWMData,
@@ -220,23 +210,13 @@ pub fn send_enable_pwm(
 }
 
 fn write_iow100_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: PWMChannel) {
-    let iow100_ch_register = match channel {
-        PWMChannel::First => pwm_data.duty_cycle_0,
-        PWMChannel::Second => pwm_data.duty_cycle_1,
-        PWMChannel::Third => pwm_data.duty_cycle_2,
-        PWMChannel::Fourth => pwm_data.duty_cycle_3,
-    };
+    let iow100_ch_register = pwm_data.get_duty_cycle(channel);
 
     write_u16(&mut bytes[0..2], iow100_ch_register);
 }
 
 fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: PWMChannel) {
-    let iow56_pls_register = match channel {
-        PWMChannel::First => pwm_data.duty_cycle_0,
-        PWMChannel::Second => pwm_data.duty_cycle_1,
-        PWMChannel::Third => pwm_data.duty_cycle_2,
-        PWMChannel::Fourth => pwm_data.duty_cycle_3,
-    };
+    let iow56_pls_register = pwm_data.get_duty_cycle(channel);
 
     write_u16(&mut bytes[0..2], pwm_data.iow56_per);
     write_u16(&mut bytes[2..4], iow56_pls_register);
@@ -247,4 +227,16 @@ fn write_iow56_pwm_channel(bytes: &mut [u8], pwm_data: &PWMData, channel: PWMCha
 fn write_u16(bytes: &mut [u8], value: u16) {
     bytes[0] = (value & 0xFF) as u8; // LSB
     bytes[1] = (value >> 8) as u8; // MSB
+}
+
+pub fn set_duty_cycle(
+    data: &IOWarriorData,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    pwm_data: &mut RefMut<PWMData>,
+    channel: PWMChannel,
+    duty: u16,
+) -> Result<(), PWMError> {
+    pwm_data.set_duty_cycle(channel, duty);
+
+    send_enable_pwm(data, mut_data, pwm_data).map_err(|x| PWMError::ErrorUSB(x))
 }

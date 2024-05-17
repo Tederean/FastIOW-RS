@@ -40,4 +40,14 @@ impl PWMChannel {
     pub(crate) const fn get_value(&self) -> u8 {
         *self as u8
     }
+
+    pub fn from_u8(channel: u8) -> PWMChannel {
+        match channel {
+            0 => PWMChannel::First,
+            1 => PWMChannel::Second,
+            2 => PWMChannel::Third,
+            3 => PWMChannel::Fourth,
+            _ => panic!("channel {} is not existing", channel),
+        }
+    }
 }
