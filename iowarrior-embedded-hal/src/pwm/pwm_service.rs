@@ -43,7 +43,7 @@ pub fn new(
 
             let pwm_data_refcell = Rc::new(RefCell::new(pwm_data));
 
-            Ok((1..pwm_pins.len())
+            Ok((0..pwm_pins.len())
                 .map(|index| PWM {
                     data: data.clone(),
                     mut_data_refcell: mut_data_refcell.clone(),

@@ -86,5 +86,8 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
 }
 
 pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
-    todo!()
+    match get_iowarriors()?.into_iter().filter(|x| x.get_serial_number() == serial_number).next() {
+        None => Err(InitializationError::NotFound(String::from(serial_number))),
+        Some(x) => Ok(x),
+    }
 }

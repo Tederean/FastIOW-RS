@@ -20,12 +20,45 @@ use ssd1306::prelude::*;
 use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use embedded_hal::pwm::SetDutyCycle;
+use iowarrior_embedded_hal::pwm::{PWMChannel, PWMConfig};
 
 fn main() {
-    match pins() {
+    match fan() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+fn fan() -> Result<()> {
+    let mut iowarriors = get_iowarriors()?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number(),
+        );
+
+        let pwm_config = PWMConfig {
+            channel_mode: PWMChannel::First,
+            requested_frequency_hz: 25_000,
+        };
+
+        let mut pwm = iowarrior.setup_pwm_with_config(pwm_config)?.pop().unwrap();
+
+        pwm.set_duty_cycle_percent(10)?;
+        thread::sleep(Duration::from_secs(1));
+
+        pwm.set_duty_cycle_percent(20)?;
+        thread::sleep(Duration::from_secs(1));
+
+        pwm.set_duty_cycle_percent(30)?;
+        thread::sleep(Duration::from_secs(1));
+    }
+
+    Ok(())
 }
 
 fn mcp() -> Result<()> {

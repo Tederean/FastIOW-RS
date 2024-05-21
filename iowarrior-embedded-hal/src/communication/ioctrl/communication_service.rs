@@ -30,8 +30,6 @@ pub fn read_report_non_blocking(
 ) -> Result<Option<Report>, HidError> {
     let usb_device = pipe_to_usb_device(&mut communication_data.usb_pipes, report.pipe);
 
-    //usb_device.set_blocking_mode(false)?; // TODO
-
     let bytes_read = usb_device.read(report.buffer.as_mut_slice())?;
 
     if bytes_read > 0 && bytes_read != report.buffer.len() {
