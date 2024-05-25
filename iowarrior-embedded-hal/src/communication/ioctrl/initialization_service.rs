@@ -1,5 +1,4 @@
 use crate::communication::{CommunicationData, InitializationError, USBPipe, USBPipes};
-use crate::delay::Delay;
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
 use hidapi::HidError::IoError;
 use itertools::Itertools;
@@ -40,7 +39,7 @@ struct IOWarriorInfo {
     device_serial: String,
 }
 
-impl fmt::Display for Delay {
+impl fmt::Display for IOWarriorInfo {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -106,7 +105,7 @@ fn get_usb_pipes(
     device_type: IOWarriorType,
     mut device_infos: Vec<IOWarriorInfo>,
 ) -> Result<USBPipes, InitializationError> {
-    device_infos.sort_by(|(a), (b)| {
+    device_infos.sort_by(|a, b| {
         a.usb_pipe
             .interface
             .partial_cmp(&b.usb_pipe.interface)

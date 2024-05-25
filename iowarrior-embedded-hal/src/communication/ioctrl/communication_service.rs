@@ -30,7 +30,7 @@ pub fn read_report_non_blocking(
 ) -> Result<Option<Report>, HidError> {
     let usb_device = pipe_to_usb_device(&mut communication_data.usb_pipes, report.pipe);
 
-    let bytes_read = usb_device.read(report.buffer.as_mut_slice())?;
+    let bytes_read = usb_device.file.read(report.buffer.as_mut_slice())?;
 
     if bytes_read > 0 && bytes_read != report.buffer.len() {
         return Err(HidError::IncompleteSendError {
@@ -51,7 +51,7 @@ pub fn read_report(
 ) -> Result<Report, HidError> {
     let usb_device = pipe_to_usb_device(&mut communication_data.usb_pipes, report.pipe);
 
-    let bytes_read = usb_device.read(report.buffer.as_mut_slice())?;
+    let bytes_read = usb_device.file.read(report.buffer.as_mut_slice())?;
 
     if bytes_read != report.buffer.len() {
         return Err(HidError::IncompleteSendError {
