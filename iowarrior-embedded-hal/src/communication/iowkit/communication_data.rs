@@ -23,4 +23,5 @@ impl Drop for IowkitData {
 pub struct CommunicationData {
     pub iowkit_data: std::sync::Arc<IowkitData>,
     pub device_handle: iowkit_sys::IOWKIT_HANDLE,
+    pub max_pipe: u8,
 }

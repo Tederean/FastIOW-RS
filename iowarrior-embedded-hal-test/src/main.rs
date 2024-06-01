@@ -2,32 +2,67 @@
 
 use anyhow::{anyhow, Result};
 use bme280::i2c::BME280;
-use embedded_graphics::{
-    image::{Image, ImageRaw},
-    pixelcolor::BinaryColor,
-    prelude::*,
-};
+use embedded_graphics::image::{Image, ImageRaw};
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::prelude::Point;
+use embedded_graphics::Drawable;
+use embedded_hal::pwm::SetDutyCycle;
 use embedded_hal::spi::SpiDevice;
 use embedded_sdmmc::sdcard::DummyCsPin;
 use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
+use iowarrior_embedded_hal::adc::{
+    ADCConfig, ADCSample, IOW28IOW100ADCConfig, IOW56ADCConfig, SampleRate4ch,
+};
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::iowarrior::{IOWarrior, IOWarriorType};
 use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
 use iowarrior_embedded_hal::{get_iowarriors, pin};
 use ssd1306::prelude::*;
-use ssd1306::{I2CDisplayInterface, Ssd1306};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use embedded_hal::pwm::SetDutyCycle;
-use iowarrior_embedded_hal::pwm::{PWMChannel, PWMConfig};
 
 fn main() {
-    match fan() {
+    match adc() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
+}
+
+fn adc() -> Result<()> {
+    let mut iowarriors = get_iowarriors()?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number(),
+        );
+
+        let adc_config = ADCConfig {
+            iow28_iow100_config: IOW28IOW100ADCConfig::Four(SampleRate4ch::OneKhz),
+            iow56_config: IOW56ADCConfig::Four,
+        };
+
+        let mut adc = iowarrior.setup_adc_with_config(adc_config)?;
+
+        let mut one_second: Vec<Option<ADCSample>> = vec![None; 4 * 1000];
+
+        adc.read(one_second.as_mut_slice())?;
+
+        for x in one_second {
+            match x {
+                None => {}
+                Some(sample) => {
+                    println!("{0}: {1}", sample.channel, sample.value);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn fan() -> Result<()> {
@@ -41,12 +76,7 @@ fn fan() -> Result<()> {
             iowarrior.get_serial_number(),
         );
 
-        let pwm_config = PWMConfig {
-            channel_mode: PWMChannel::First,
-            requested_frequency_hz: 25_000,
-        };
-
-        let mut pwm = iowarrior.setup_pwm_with_config(pwm_config)?.pop().unwrap();
+        let mut pwm = iowarrior.setup_pwm()?.pop().unwrap();
 
         pwm.set_duty_cycle_percent(10)?;
         thread::sleep(Duration::from_secs(1));
@@ -177,10 +207,11 @@ fn ssd1306() -> Result<()> {
         );
 
         let i2c = iowarrior.setup_i2c()?;
-        let interface = I2CDisplayInterface::new(i2c);
+        let interface = ssd1306::I2CDisplayInterface::new(i2c);
 
-        let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
-            .into_buffered_graphics_mode();
+        let mut display =
+            ssd1306::Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
+                .into_buffered_graphics_mode();
 
         display.init().map_err(|_err| anyhow!("display.init"))?;
 

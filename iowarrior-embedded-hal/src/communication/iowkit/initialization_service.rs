@@ -1,6 +1,6 @@
 use crate::communication::IowkitData;
 use crate::communication::{CommunicationData, InitializationError};
-use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType};
+use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType, Pipe};
 use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
@@ -69,6 +69,7 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
         let communication_data = CommunicationData {
             iowkit_data: iowkit_data.clone(),
             device_handle,
+            max_pipe: get_max_pipe(device_type),
         };
 
         let iowarrior = iowarrior_service::create_iowarrior(
@@ -85,8 +86,26 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
     Ok(vec)
 }
 
+fn get_max_pipe(device_type: IOWarriorType) -> u8 {
+    match device_type {
+        IOWarriorType::IOWarrior28
+        | IOWarriorType::IOWarrior28Dongle
+        | IOWarriorType::IOWarrior100 => Pipe::ADCMode.get_value(),
+        IOWarriorType::IOWarrior40
+        | IOWarriorType::IOWarrior24
+        | IOWarriorType::IOWarrior24PowerVampire
+        | IOWarriorType::IOWarrior28L
+        | IOWarriorType::IOWarrior56
+        | IOWarriorType::IOWarrior56Dongle => Pipe::SpecialMode.get_value(),
+    }
+}
+
 pub fn get_iowarrior(serial_number: &str) -> Result<IOWarrior, InitializationError> {
-    match get_iowarriors()?.into_iter().filter(|x| x.get_serial_number() == serial_number).next() {
+    match get_iowarriors()?
+        .into_iter()
+        .filter(|x| x.get_serial_number() == serial_number)
+        .next()
+    {
         None => Err(InitializationError::NotFound(String::from(serial_number))),
         Some(x) => Ok(x),
     }

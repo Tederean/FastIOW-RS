@@ -18,7 +18,6 @@ pub fn create_iowarrior(
         device_type,
         standard_report_size: get_standard_report_size(device_type),
         special_report_size: get_special_report_size(device_type),
-        i2c_pipe: get_i2c_pipe(device_type),
     };
 
     if data.device_type == IOWarriorType::IOWarrior56 {
@@ -43,20 +42,6 @@ pub fn create_iowarrior(
         data: Rc::new(data),
         mut_data_refcell: Rc::new(RefCell::new(mut_data)),
     })
-}
-
-fn get_i2c_pipe(device_type: IOWarriorType) -> Pipe {
-    match device_type {
-        IOWarriorType::IOWarrior28
-        | IOWarriorType::IOWarrior28Dongle
-        | IOWarriorType::IOWarrior100 => Pipe::I2CMode,
-        IOWarriorType::IOWarrior40
-        | IOWarriorType::IOWarrior24
-        | IOWarriorType::IOWarrior24PowerVampire
-        | IOWarriorType::IOWarrior28L
-        | IOWarriorType::IOWarrior56
-        | IOWarriorType::IOWarrior56Dongle => Pipe::SpecialMode,
-    }
 }
 
 fn get_standard_report_size(device_type: IOWarriorType) -> usize {

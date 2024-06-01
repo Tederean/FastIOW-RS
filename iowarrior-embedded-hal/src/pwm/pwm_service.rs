@@ -3,7 +3,7 @@ use crate::iowarrior::{
     peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
     ReportId,
 };
-use crate::pwm::{IOWarriorPWMType, PWMChannel, PWMConfig, PWMData, PWMError, PWM};
+use crate::pwm::{IOW56PWMConfig, IOWarriorPWMType, PWMChannel, PWMConfig, PWMData, PWMError, PWM};
 use crate::{iowarrior::IOWarriorType, pin};
 use hidapi::HidError;
 use std::cell::{RefCell, RefMut};
@@ -14,19 +14,19 @@ pub fn new(
     mut_data_refcell: &Rc<RefCell<IOWarriorMutData>>,
     pwm_config: PWMConfig,
 ) -> Result<Vec<PWM>, PeripheralSetupError> {
-    match get_pwm_type(&data, pwm_config.channel_mode) {
+    match get_pwm_type(&data, pwm_config) {
         None => Err(PeripheralSetupError::NotSupported),
         Some(pwm_type) => {
             let mut mut_data = mut_data_refcell.borrow_mut();
 
             if pwm_type == IOWarriorPWMType::IOWarrior56
-                && pwm_config.channel_mode == PWMChannel::Second
+                && pwm_config.iow56_config == IOW56PWMConfig::Two
                 && peripheral_service::get_used_pins(&mut mut_data, Peripheral::SPI).len() > 0
             {
                 return Err(PeripheralSetupError::HardwareBlocked(Peripheral::SPI));
             }
 
-            let pwm_pins = get_pwm_pins(pwm_type, pwm_config.channel_mode);
+            let pwm_pins = get_pwm_pins(pwm_type, pwm_config);
             let pwm_data = calculate_pwm_data(pwm_type, pwm_config);
 
             peripheral_service::precheck_peripheral(
@@ -48,14 +48,14 @@ pub fn new(
                     data: data.clone(),
                     mut_data_refcell: mut_data_refcell.clone(),
                     pwm_data_refcell: pwm_data_refcell.clone(),
-                    channel: PWMChannel::from_u8(index as u8),
+                    channel: PWMChannel::from_u8((index + 1) as u8),
                 })
                 .collect())
         }
     }
 }
 
-fn get_pwm_type(data: &Rc<IOWarriorData>, channel_mode: PWMChannel) -> Option<IOWarriorPWMType> {
+fn get_pwm_type(data: &Rc<IOWarriorData>, pwm_config: PWMConfig) -> Option<IOWarriorPWMType> {
     if data.device_type == IOWarriorType::IOWarrior100 {
         return Some(IOWarriorPWMType::IOWarrior100);
     }
@@ -65,14 +65,12 @@ fn get_pwm_type(data: &Rc<IOWarriorData>, channel_mode: PWMChannel) -> Option<IO
     {
         if data.device_revision >= 0x2000
             && data.device_revision < 0x2002
-            && channel_mode == PWMChannel::First
+            && pwm_config.iow56_config == IOW56PWMConfig::One
         {
             return Some(IOWarriorPWMType::IOWarrior56);
         }
 
-        if data.device_revision >= 0x2002
-            && (channel_mode == PWMChannel::First || channel_mode == PWMChannel::Second)
-        {
+        if data.device_revision >= 0x2002 {
             return Some(IOWarriorPWMType::IOWarrior56);
         }
     }
@@ -80,28 +78,31 @@ fn get_pwm_type(data: &Rc<IOWarriorData>, channel_mode: PWMChannel) -> Option<IO
     return None;
 }
 
-fn get_pwm_pins(pwm_type: IOWarriorPWMType, channel_mode: PWMChannel) -> Vec<u8> {
-    let available_pwm_pins: Vec<u8> = match pwm_type {
-        IOWarriorPWMType::IOWarrior56 => {
-            vec![pin!(6, 7), pin!(6, 0)]
-        }
-        IOWarriorPWMType::IOWarrior100 => {
-            vec![pin!(8, 3), pin!(8, 4), pin!(8, 5), pin!(8, 6)]
-        }
-    };
-
-    available_pwm_pins
-        .iter()
-        .take(channel_mode.get_value() as usize)
-        .map(|x| x.clone())
-        .collect()
+fn get_pwm_pins(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> Vec<u8> {
+    match pwm_type {
+        IOWarriorPWMType::IOWarrior56 => [pin!(6, 7), pin!(6, 0)]
+            .iter()
+            .take(pwm_config.iow56_config.get_value() as usize)
+            .map(|x| x.clone())
+            .collect(),
+        IOWarriorPWMType::IOWarrior100 => [pin!(8, 3), pin!(8, 4), pin!(8, 5), pin!(8, 6)]
+            .iter()
+            .take(pwm_config.iow100_config.get_value() as usize)
+            .map(|x| x.clone())
+            .collect(),
+    }
 }
 
 fn calculate_pwm_data(pwm_type: IOWarriorPWMType, pwm_config: PWMConfig) -> PWMData {
+    let pins_counter = match pwm_type {
+        IOWarriorPWMType::IOWarrior56 => pwm_config.iow56_config.get_value(),
+        IOWarriorPWMType::IOWarrior100 => pwm_config.iow100_config.get_value(),
+    };
+
     let mut data = PWMData {
         pwm_type,
         pwm_config,
-        pins_counter: pwm_config.channel_mode.get_value(),
+        pins_counter,
         iow56_per: 0,
         iow56_clock_source: 0,
         iow100_prescaler: 0,
@@ -179,7 +180,10 @@ fn send_enable_pwm(
         let mut report = data.create_report(Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmSetup.get_value();
-        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+        report.buffer[1] = match pwm_data.pwm_type {
+            IOWarriorPWMType::IOWarrior56 => pwm_data.pwm_config.iow56_config.get_value(),
+            IOWarriorPWMType::IOWarrior100 => pwm_data.pwm_config.iow100_config.get_value(),
+        };
 
         if pwm_data.pwm_type == IOWarriorPWMType::IOWarrior56 {
             write_iow56_pwm_channel(&mut report.buffer[2..7], &pwm_data, PWMChannel::First);
@@ -193,7 +197,10 @@ fn send_enable_pwm(
         let mut report = data.create_report(Pipe::SpecialMode);
 
         report.buffer[0] = ReportId::PwmParameters.get_value();
-        report.buffer[1] = pwm_data.pwm_config.channel_mode.get_value();
+        report.buffer[1] = match pwm_data.pwm_type {
+            IOWarriorPWMType::IOWarrior56 => pwm_data.pwm_config.iow56_config.get_value(),
+            IOWarriorPWMType::IOWarrior100 => pwm_data.pwm_config.iow100_config.get_value(),
+        };
 
         write_u16(&mut report.buffer[2..4], pwm_data.iow100_prescaler);
         write_u16(&mut report.buffer[4..6], pwm_data.iow100_cycle);

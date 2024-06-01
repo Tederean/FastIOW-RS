@@ -3,7 +3,7 @@ use crate::bits::Bitmasking;
 use crate::communication::communication_service;
 use crate::i2c::{I2CConfig, I2CError, I2C};
 use crate::iowarrior::{
-    peripheral_service, IOWarriorMutData, IOWarriorType, Peripheral, PeripheralSetupError,
+    peripheral_service, IOWarriorMutData, IOWarriorType, Peripheral, PeripheralSetupError, Pipe,
 };
 use crate::iowarrior::{IOWarriorData, Report, ReportId};
 use crate::pin;
@@ -58,7 +58,7 @@ fn send_enable_i2c(
     i2c_config: &I2CConfig,
     i2c_pins: &Vec<u8>,
 ) -> Result<(), HidError> {
-    let mut report = data.create_report(data.i2c_pipe);
+    let mut report = data.create_report(Pipe::I2CMode);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x01;
@@ -96,7 +96,7 @@ pub fn write_data(
 
     let mut report = Report {
         buffer: Vec::with_capacity(data.special_report_size),
-        pipe: data.i2c_pipe,
+        pipe: Pipe::I2CMode,
     };
 
     for (index, chunk) in chunk_iterator.enumerate() {
@@ -153,7 +153,7 @@ pub fn read_data(
         let chunk_length = chunk.len() as u8;
 
         {
-            let mut report = data.create_report(data.i2c_pipe);
+            let mut report = data.create_report(Pipe::I2CMode);
 
             report.buffer[0] = report_id.get_value();
             report.buffer[1] = chunk_length;
@@ -187,7 +187,7 @@ fn read_report(
 ) -> Result<Report, I2CError> {
     let report = communication_service::read_report(
         &mut mut_data.communication_data,
-        data.create_report(data.i2c_pipe),
+        data.create_report(Pipe::I2CMode),
     )
     .map_err(|x| I2CError::ErrorUSB(x))?;
 

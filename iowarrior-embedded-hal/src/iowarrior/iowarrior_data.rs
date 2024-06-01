@@ -8,7 +8,6 @@ pub struct IOWarriorData {
     pub device_type: IOWarriorType,
     pub standard_report_size: usize,
     pub special_report_size: usize,
-    pub i2c_pipe: Pipe,
 }
 
 impl IOWarriorData {

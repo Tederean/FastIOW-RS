@@ -67,8 +67,7 @@ fn pipe_to_usb_device(usb_pipes: &mut USBPipes, pipe: Pipe) -> &mut USBPipe {
     match usb_pipes {
         USBPipes::Standard { pipe_0, pipe_1 } => match pipe {
             Pipe::IOPins => pipe_0,
-            Pipe::SpecialMode => pipe_1,
-            Pipe::I2CMode | Pipe::ADCMode => panic!("Requested unsupported Pipe."),
+            Pipe::SpecialMode | Pipe::I2CMode | Pipe::ADCMode => pipe_1,
         },
         USBPipes::Extended {
             pipe_0,

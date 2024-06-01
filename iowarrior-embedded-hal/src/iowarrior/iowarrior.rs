@@ -1,3 +1,4 @@
+use crate::adc::{adc_service, ADCConfig, ADC};
 use crate::digital::{digital_service, InputPin, OutputPin, PinSetupError};
 use crate::i2c::{i2c_service, I2CConfig, I2C};
 use crate::iowarrior::{IOWarriorData, IOWarriorMutData};
@@ -65,6 +66,21 @@ impl IOWarrior {
         let pwm_config = PWMConfig::default();
 
         pwm_service::new(&self.data, &self.mut_data_refcell, pwm_config)
+    }
+
+    #[inline]
+    pub fn setup_adc_with_config(
+        &self,
+        adc_config: ADCConfig,
+    ) -> Result<ADC, PeripheralSetupError> {
+        adc_service::new(&self.data, &self.mut_data_refcell, adc_config)
+    }
+
+    #[inline]
+    pub fn setup_adc(&self) -> Result<ADC, PeripheralSetupError> {
+        let adc_config = ADCConfig::default();
+
+        adc_service::new(&self.data, &self.mut_data_refcell, adc_config)
     }
 
     #[inline]

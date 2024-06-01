@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+pub mod adc;
 pub mod bits;
 pub mod communication;
 pub mod delay;

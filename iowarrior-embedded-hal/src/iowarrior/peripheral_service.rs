@@ -75,6 +75,7 @@ pub fn cleanup_dangling_modules(
                 Peripheral::I2C => send_disable_i2c(&data, &mut mut_data.communication_data),
                 Peripheral::PWM => send_disable_pwm(&data, &mut mut_data.communication_data),
                 Peripheral::SPI => send_disable_spi(&data, &mut mut_data.communication_data),
+                Peripheral::ADC => send_disable_adc(&data, &mut mut_data.communication_data),
             }?;
 
             mut_data.dangling_peripherals.retain(|y| *y != x);
@@ -125,6 +126,7 @@ pub fn disable_peripheral(
         Peripheral::I2C => send_disable_i2c(data, &mut mut_data.communication_data),
         Peripheral::PWM => send_disable_pwm(data, &mut mut_data.communication_data),
         Peripheral::SPI => send_disable_spi(data, &mut mut_data.communication_data),
+        Peripheral::ADC => send_disable_adc(data, &mut mut_data.communication_data),
     } {
         Ok(_) => {
             mut_data
@@ -141,7 +143,7 @@ fn send_disable_i2c(
     data: &IOWarriorData,
     communication_data: &mut CommunicationData,
 ) -> Result<(), HidError> {
-    let mut report = data.create_report(data.i2c_pipe);
+    let mut report = data.create_report(Pipe::I2CMode);
 
     report.buffer[0] = ReportId::I2cSetup.get_value();
     report.buffer[1] = 0x00;
@@ -168,6 +170,18 @@ fn send_disable_spi(
     let mut report = data.create_report(Pipe::SpecialMode);
 
     report.buffer[0] = ReportId::SpiSetup.get_value();
+    report.buffer[1] = 0x00;
+
+    communication_service::write_report(communication_data, &report)
+}
+
+fn send_disable_adc(
+    data: &IOWarriorData,
+    communication_data: &mut CommunicationData,
+) -> Result<(), HidError> {
+    let mut report = data.create_report(Pipe::ADCMode);
+
+    report.buffer[0] = ReportId::AdcSetup.get_value();
     report.buffer[1] = 0x00;
 
     communication_service::write_report(communication_data, &report)
