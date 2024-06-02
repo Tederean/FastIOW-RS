@@ -172,6 +172,7 @@ impl ADCChannel {
         *self as u8
     }
 
+    #[inline]
     pub fn from_u8(channel: u8) -> ADCChannel {
         match channel {
             1 => ADCChannel::First,

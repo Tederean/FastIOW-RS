@@ -176,7 +176,6 @@ pub fn read_samples(
     buffer: &mut [Option<ADCSample>],
 ) -> Result<(), ADCError> {
     let mut last_packet: Option<u8> = None;
-    let mut sample_counter = 0usize;
 
     let chunk_iterator =
         buffer.chunks_mut((adc_data.report_sample_count * adc_data.max_channel_value) as usize);
@@ -201,6 +200,8 @@ pub fn read_samples(
             }
         }
 
+        let mut sample_counter = 0u8;
+
         for (to, from) in to_iterator
             .iter_mut()
             .zip(report.buffer.chunks_exact(2).skip(1))
@@ -208,7 +209,7 @@ pub fn read_samples(
             sample_counter += 1;
 
             let value = u16::from_le_bytes([from[0], from[1]]);
-            let raw_channel = (sample_counter % adc_data.max_channel_value as usize) as u8 + 1;
+            let raw_channel = (sample_counter % adc_data.max_channel_value) + 1;
 
             *to = Some(ADCSample {
                 channel: ADCChannel::from_u8(raw_channel),
