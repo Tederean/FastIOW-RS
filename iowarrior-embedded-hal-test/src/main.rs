@@ -12,9 +12,7 @@ use embedded_sdmmc::sdcard::DummyCsPin;
 use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
-use iowarrior_embedded_hal::adc::{
-    ADCConfig, ADCSample, IOW28IOW100ADCConfig, IOW56ADCConfig, SampleRate4ch,
-};
+use iowarrior_embedded_hal::adc::{ADCChannel, ADCConfig, ADCSample, IOW28IOW100ADCConfig, IOW56ADCConfig, SampleRate1ch, SampleRate4ch};
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::iowarrior::{IOWarrior, IOWarriorType};
 use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
@@ -22,15 +20,45 @@ use iowarrior_embedded_hal::{get_iowarriors, pin};
 use ssd1306::prelude::*;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use embedded_hal::digital::PinState;
 
 fn main() {
-    match adc() {
+    match adc_pulse_in() {
         Ok(_) => println!("Success"),
         Err(error) => println!("{}", error),
     }
 }
 
-fn adc() -> Result<()> {
+fn adc_pulse_in() -> Result<()> {
+    let mut iowarriors = get_iowarriors()?;
+
+    for iowarrior in &mut iowarriors {
+        println!(
+            "Type: {0} Rev: {1} SN: {2}",
+            iowarrior.get_type(),
+            iowarrior.get_revision(),
+            iowarrior.get_serial_number(),
+        );
+
+        let adc_config = ADCConfig {
+            iow28_iow100_config: IOW28IOW100ADCConfig::One(SampleRate1ch::TwentyfourKhz),
+            iow56_config: IOW56ADCConfig::One,
+        };
+
+        let mut adc = iowarrior.setup_adc_with_config(adc_config)?;
+
+        let pulse = adc.pulse_in(ADCChannel::First, PinState::High, Duration::from_secs(1))?;
+
+        println!(
+            "Received pulse of {} us",
+            pulse.as_micros(),
+        );
+    }
+
+    Ok(())
+}
+
+fn adc_read() -> Result<()> {
     let mut iowarriors = get_iowarriors()?;
 
     for iowarrior in &mut iowarriors {

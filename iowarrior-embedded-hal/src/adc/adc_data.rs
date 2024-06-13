@@ -8,6 +8,7 @@ pub struct ADCData {
     pub resolution_bits: u8,
     pub report_sample_count: u8,
     pub max_channel_value: u8,
+    pub sample_duration_ns: u64,
 }
 
 impl fmt::Display for ADCData {

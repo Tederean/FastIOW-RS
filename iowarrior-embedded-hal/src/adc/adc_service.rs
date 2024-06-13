@@ -1,17 +1,17 @@
 use crate::adc::adc_sample::ADCSample;
-use crate::adc::{
-    ADCChannel, ADCConfig, ADCData, ADCError, IOW28IOW100ADCConfig, IOW56ADCConfig,
-    IOWarriorADCType, ADC,
-};
+use crate::adc::{ADCChannel, ADCConfig, ADCData, ADCPulseInError, ADCReadError, IOW28IOW100ADCConfig, IOW56ADCConfig, IOWarriorADCType, ADC, SampleRate1ch, SampleRate2ch, SampleRate4ch};
 use crate::communication::communication_service;
 use crate::iowarrior::{
     peripheral_service, IOWarriorData, IOWarriorMutData, Peripheral, PeripheralSetupError, Pipe,
     ReportId,
 };
 use crate::{iowarrior::IOWarriorType, pin};
+use embedded_hal::digital::PinState;
 use hidapi::HidError;
 use std::cell::{RefCell, RefMut};
+use std::ops::Not;
 use std::rc::Rc;
+use std::time::Duration;
 
 pub fn new(
     data: &Rc<IOWarriorData>,
@@ -25,8 +25,8 @@ pub fn new(
 
             let resolution_bits = get_resolution(adc_type);
             let report_sample_count = get_adc_sample_count(adc_type, adc_config);
-
-            let max_channel_value = get_max_channel_value(adc_config, adc_type);
+            let max_channel_value = get_max_channel_value(adc_type, adc_config);
+            let sample_duration_ns = get_sample_duration_ns(adc_type, adc_config);
 
             let adc_data = ADCData {
                 adc_type,
@@ -34,6 +34,7 @@ pub fn new(
                 resolution_bits,
                 report_sample_count,
                 max_channel_value,
+                sample_duration_ns,
             };
 
             let adc_pins = get_adc_pins(&adc_data);
@@ -61,7 +62,7 @@ pub fn new(
     }
 }
 
-fn get_max_channel_value(adc_config: ADCConfig, adc_type: IOWarriorADCType) -> u8 {
+fn get_max_channel_value(adc_type: IOWarriorADCType, adc_config: ADCConfig) -> u8 {
     match adc_type {
         IOWarriorADCType::IOWarrior28 | IOWarriorADCType::IOWarrior100 => {
             adc_config.iow28_iow100_config.get_value()
@@ -145,6 +146,72 @@ fn get_adc_pins(adc_data: &ADCData) -> Vec<u8> {
     }
 }
 
+fn get_sample_duration_ns(adc_type: IOWarriorADCType, adc_config: ADCConfig) -> u64 {
+    match adc_type {
+        IOWarriorADCType::IOWarrior28 | IOWarriorADCType::IOWarrior100 => {
+            let channel_count = adc_config.iow28_iow100_config.get_value() as u64;
+
+            let frequency_hz = match adc_config.iow28_iow100_config {
+                IOW28IOW100ADCConfig::One(one_ch) => { 
+                    match one_ch {
+                        SampleRate1ch::OneKhz => 1_000u64,
+                        SampleRate1ch::TwoKhz => 2_000u64,
+                        SampleRate1ch::ThreeKhz => 3_000u64,
+                        SampleRate1ch::FourKhz => 4_000u64,
+                        SampleRate1ch::SixKhz => 6_000u64,
+                        SampleRate1ch::EightKhz => 8_000u64,
+                        SampleRate1ch::TenKhz => 10_000u64,
+                        SampleRate1ch::TwelfthKhz => 12_000u64,
+                        SampleRate1ch::FifteenKhz => 15_000u64,
+                        SampleRate1ch::SixteenKhz => 16_000u64,
+                        SampleRate1ch::TwentyKhz => 20_000u64,
+                        SampleRate1ch::TwentyfourKhz => 24_000u64,
+                        SampleRate1ch::ThirtyKhz => 30_000u64,
+                    }
+                },
+                IOW28IOW100ADCConfig::Two(two_ch) => { 
+                    match two_ch {
+                        SampleRate2ch::OneKhz => 1_000u64,
+                        SampleRate2ch::TwoKhz => 2_000u64,
+                        SampleRate2ch::ThreeKhz => 3_000u64,
+                        SampleRate2ch::FourKhz => 4_000u64,
+                        SampleRate2ch::SixKhz => 6_000u64,
+                        SampleRate2ch::EightKhz => 8_000u64,
+                        SampleRate2ch::TenKhz => 10_000u64,
+                        SampleRate2ch::TwelfthKhz => 12_000u64,
+                        SampleRate2ch::FifteenKhz => 15_000u64,
+                    }
+                },
+                IOW28IOW100ADCConfig::Four(four_ch) => {
+                    match four_ch {
+                        SampleRate4ch::OneKhz => 1_000u64,
+                        SampleRate4ch::TwoKhz => 2_000u64,
+                        SampleRate4ch::ThreeKhz => 3_000u64,
+                        SampleRate4ch::FourKhz => 4_000u64,
+                        SampleRate4ch::SixKhz => 6_000u64,
+                    }
+                },
+            };
+
+            1_000_000_000u64 / (frequency_hz * channel_count)
+        }
+        IOWarriorADCType::IOWarrior56 => {
+            match adc_config.iow56_config {
+                IOW56ADCConfig::One => 1_000_000_000u64 / 7800, // 1 s : 7800 Hz
+                IOW56ADCConfig::Two
+                | IOW56ADCConfig::Three
+                | IOW56ADCConfig::Four
+                | IOW56ADCConfig::Five
+                | IOW56ADCConfig::Six
+                | IOW56ADCConfig::Seven
+                | IOW56ADCConfig::Eight => {
+                    385_000u64 // 385 us
+                }
+            }
+        }
+    }
+}
+
 fn send_enable_adc(
     data: &IOWarriorData,
     mut_data: &mut RefMut<IOWarriorMutData>,
@@ -174,49 +241,143 @@ pub fn read_samples(
     mut_data: &mut RefMut<IOWarriorMutData>,
     adc_data: &ADCData,
     buffer: &mut [Option<ADCSample>],
-) -> Result<(), ADCError> {
+) -> Result<(), ADCReadError> {
     let mut last_packet: Option<u8> = None;
 
-    let chunk_iterator =
-        buffer.chunks_mut((adc_data.report_sample_count * adc_data.max_channel_value) as usize);
+    let chunk_size = (adc_data.report_sample_count * adc_data.max_channel_value) as usize;
 
-    for to_iterator in chunk_iterator {
-        let report = communication_service::read_report(
-            &mut mut_data.communication_data,
-            data.create_report(Pipe::ADCMode),
-        )
-        .map_err(|x| ADCError::ErrorUSB(x))?;
+    for to_iterator in buffer.chunks_mut(chunk_size) {
+        read_samples_report(data, mut_data, adc_data, to_iterator, &mut last_packet)?;
+    }
 
-        match last_packet {
-            None => last_packet = Some(report.buffer[1]),
-            Some(last_packet_number) => {
-                let next_packet_number = report.buffer[1];
+    Ok(())
+}
 
-                if last_packet_number.wrapping_add(1) != next_packet_number {
-                    return Err(ADCError::PacketLoss);
+pub fn pulse_in(
+    data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    adc_data: &ADCData,
+    channel: ADCChannel,
+    pin_state: PinState,
+    timeout: Duration,
+) -> Result<Duration, ADCPulseInError> {
+    let chunk_size = (adc_data.report_sample_count * adc_data.max_channel_value) as usize;
+
+    let max_report_count = timeout.as_nanos()
+        / (adc_data.sample_duration_ns as u128 * chunk_size as u128);
+
+    let mut last_packet: Option<u8> = None;
+    let mut buffer: Vec<Option<ADCSample>> = vec![None; chunk_size];
+    let mut state = PulseInState::WaitingForInvertedPinState;
+
+    for report_index in 0..max_report_count {
+        read_samples_report(data, mut_data, adc_data, &mut buffer, &mut last_packet).map_err(
+            |x| match x {
+                ADCReadError::PacketLoss => ADCPulseInError::PacketLoss,
+                ADCReadError::ErrorUSB(y) => ADCPulseInError::ErrorUSB(y),
+            },
+        )?;
+
+        for (sample_index, buffer_entry) in buffer.iter().enumerate() {
+            let sample = match buffer_entry {
+                None => break,
+                Some(x) => x,
+            };
+
+            let actual_pin_state = get_pin_state(sample, adc_data);
+
+            match state {
+                PulseInState::WaitingForInvertedPinState => {
+                    if actual_pin_state.not() == pin_state {
+                        state = PulseInState::WaitingFor1stChange;
+                    }
                 }
+                PulseInState::WaitingFor1stChange => {
+                    if actual_pin_state == pin_state {
+                        state = PulseInState::WaitingFor2ndChange {
+                            first_change_time: (report_index * chunk_size as u128) + sample_index as u128,
+                        };
+                    }
+                }
+                PulseInState::WaitingFor2ndChange { first_change_time } => {
+                    if actual_pin_state.not() == pin_state {
+                        let second_change_time = (report_index * chunk_size as u128) + sample_index as u128;
+                        let samples_count = second_change_time - first_change_time;
 
-                last_packet = Some(next_packet_number);
+                        return Ok(Duration::from_nanos(
+                            samples_count as u64 * adc_data.sample_duration_ns,
+                        ));
+                    }
+                }
             }
-        }
-
-        let mut sample_counter = 0u8;
-
-        for (to, from) in to_iterator
-            .iter_mut()
-            .zip(report.buffer.chunks_exact(2).skip(1))
-        {
-            sample_counter += 1;
-
-            let value = u16::from_le_bytes([from[0], from[1]]);
-            let raw_channel = (sample_counter % adc_data.max_channel_value) + 1;
-
-            *to = Some(ADCSample {
-                channel: ADCChannel::from_u8(raw_channel),
-                value,
-            });
         }
     }
 
+    Err(ADCPulseInError::PulseTimeout)
+}
+
+#[inline]
+fn get_pin_state(adc_sample: &ADCSample, adc_data: &ADCData) -> PinState {
+    let value = adc_sample.value << (16 - adc_data.resolution_bits);
+
+    match value > 0x7FFF {
+        true => PinState::High,
+        false => PinState::Low,
+    }
+}
+
+enum PulseInState {
+    WaitingForInvertedPinState,
+    WaitingFor1stChange,
+    WaitingFor2ndChange { first_change_time: u128 },
+}
+
+fn read_samples_report(
+    data: &Rc<IOWarriorData>,
+    mut_data: &mut RefMut<IOWarriorMutData>,
+    adc_data: &ADCData,
+    buffer: &mut [Option<ADCSample>],
+    last_packet: &mut Option<u8>,
+) -> Result<(), ADCReadError> {
+    let report = communication_service::read_report(
+        &mut mut_data.communication_data,
+        data.create_report(Pipe::ADCMode),
+    )
+    .map_err(|x| ADCReadError::ErrorUSB(x))?;
+
+    //update_packet_number(last_packet, report.buffer[1])?;
+
+    let mut sample_counter = 0u8;
+
+    for (to, from) in buffer.iter_mut().zip(report.buffer.chunks_exact(2).skip(1)) {
+        sample_counter += 1;
+
+        let value = u16::from_le_bytes([from[0], from[1]]);
+        let raw_channel = (sample_counter % adc_data.max_channel_value) + 1;
+
+        *to = Some(ADCSample {
+            channel: ADCChannel::from_u8(raw_channel),
+            value,
+        });
+    }
+
+    Ok(())
+}
+
+#[inline]
+fn update_packet_number(
+    last_packet: &mut Option<u8>,
+    next_packet_number: u8,
+) -> Result<(), ADCReadError> {
+    match last_packet.clone() {
+        None => {}
+        Some(last_packet_number) => {
+            if last_packet_number.wrapping_add(1) != next_packet_number {
+                return Err(ADCReadError::PacketLoss);
+            }
+        }
+    }
+
+    *last_packet = Some(next_packet_number);
     Ok(())
 }

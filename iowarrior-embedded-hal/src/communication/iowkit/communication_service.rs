@@ -6,10 +6,12 @@ pub fn write_report(
     communication_data: &mut CommunicationData,
     report: &Report,
 ) -> Result<(), HidError> {
+    let pipe = u8::min(report.pipe.get_value(), communication_data.max_pipe);
+
     let written_bytes = unsafe {
         communication_data.iowkit_data.iowkit.IowKitWrite(
-            communication_data.device_handle,
-            u8::min(report.pipe.get_value(), communication_data.max_pipe) as iowkit_sys::ULONG,
+            communication_data.device_handle.as_ptr(),
+            pipe as iowkit_sys::ULONG,
             report.buffer.as_ptr() as iowkit_sys::PCHAR,
             report.buffer.len() as iowkit_sys::ULONG,
         )
@@ -29,10 +31,12 @@ pub fn read_report_non_blocking(
     communication_data: &mut CommunicationData,
     mut report: Report,
 ) -> Result<Option<Report>, HidError> {
+    let pipe = u8::min(report.pipe.get_value(), communication_data.max_pipe);
+
     let read_bytes = unsafe {
         communication_data.iowkit_data.iowkit.IowKitReadNonBlocking(
-            communication_data.device_handle,
-            u8::min(report.pipe.get_value(), communication_data.max_pipe) as iowkit_sys::ULONG,
+            communication_data.device_handle.as_ptr(),
+            pipe as iowkit_sys::ULONG,
             report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
             report.buffer.len() as iowkit_sys::ULONG,
         )
@@ -49,10 +53,12 @@ pub fn read_report(
     communication_data: &mut CommunicationData,
     mut report: Report,
 ) -> Result<Report, HidError> {
+    let pipe = u8::min(report.pipe.get_value(), communication_data.max_pipe);
+
     let read_bytes = unsafe {
         communication_data.iowkit_data.iowkit.IowKitRead(
-            communication_data.device_handle,
-            u8::min(report.pipe.get_value(), communication_data.max_pipe) as iowkit_sys::ULONG,
+            communication_data.device_handle.as_ptr(),
+            pipe as iowkit_sys::ULONG,
             report.buffer.as_mut_ptr() as iowkit_sys::PCHAR,
             report.buffer.len() as iowkit_sys::ULONG,
         )

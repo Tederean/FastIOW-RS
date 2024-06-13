@@ -1,6 +1,7 @@
 use crate::communication::IowkitData;
 use crate::communication::{CommunicationData, InitializationError};
 use crate::iowarrior::{iowarrior_service, IOWarrior, IOWarriorType, Pipe};
+use std::ptr::NonNull;
 use std::sync::Arc;
 
 #[cfg(target_os = "windows")]
@@ -14,11 +15,10 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
         InitializationError::InternalError("Error loading iowkit library.".to_owned())
     })?;
 
-    let iowkit_handle = unsafe { iowkit.IowKitOpenDevice() };
-
-    if iowkit_handle.is_null() {
-        return Ok(Vec::<IOWarrior>::with_capacity(0));
-    }
+    let iowkit_handle = match NonNull::new(unsafe { iowkit.IowKitOpenDevice() }) {
+        None => return Ok(Vec::<IOWarrior>::with_capacity(0)),
+        Some(x) => x,
+    };
 
     let device_count = unsafe { iowkit.IowKitGetNumDevs() };
     let mut vec: Vec<IOWarrior> = Vec::new();
@@ -29,15 +29,19 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
     });
 
     for index in 0..device_count {
-        let device_handle = unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) };
+        let device_handle =
+            match NonNull::new(unsafe { iowkit_data.iowkit.IowKitGetDeviceHandle(index + 1) }) {
+                None => continue,
+                Some(x) => x,
+            };
 
-        if device_handle.is_null() {
-            continue;
-        }
-
-        let device_product_id =
-            unsafe { iowkit_data.iowkit.IowKitGetProductId(device_handle) } as u16;
-        let device_revision = unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle) } as u16;
+        let device_product_id = unsafe {
+            iowkit_data
+                .iowkit
+                .IowKitGetProductId(device_handle.as_ptr())
+        } as u16;
+        let device_revision =
+            unsafe { iowkit_data.iowkit.IowKitGetRevision(device_handle.as_ptr()) } as u16;
 
         let device_type = match IOWarriorType::from_device_product_id(device_product_id) {
             None => continue,
@@ -52,9 +56,10 @@ pub fn get_iowarriors() -> Result<Vec<IOWarrior>, InitializationError> {
             let mut raw_device_serial_number = [0u16; 9];
 
             let device_serial_number_result = unsafe {
-                iowkit_data
-                    .iowkit
-                    .IowKitGetSerialNumber(device_handle, raw_device_serial_number.as_mut_ptr())
+                iowkit_data.iowkit.IowKitGetSerialNumber(
+                    device_handle.as_ptr(),
+                    raw_device_serial_number.as_mut_ptr(),
+                )
             };
 
             if device_serial_number_result > 0i32 {
