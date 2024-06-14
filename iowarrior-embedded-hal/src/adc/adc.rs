@@ -44,8 +44,8 @@ impl ADC {
     }
 
     #[inline]
-    pub fn get_sampling_time_ns(&self) -> u64 {
-        self.adc_data.sample_duration_ns
+    pub fn get_sampling_frequency_hz(&self) -> f32 {
+        self.adc_data.sampling_frequency_hz
     }
 
     #[inline]

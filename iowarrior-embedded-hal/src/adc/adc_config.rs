@@ -28,17 +28,6 @@ pub enum IOW28IOW100ADCConfig {
     Four(SampleRate4ch),
 }
 
-impl IOW28IOW100ADCConfig {
-    #[inline]
-    pub(crate) const fn get_value(&self) -> u8 {
-        match self {
-            IOW28IOW100ADCConfig::One(_) => 1,
-            IOW28IOW100ADCConfig::Two(_) => 2,
-            IOW28IOW100ADCConfig::Four(_) => 4,
-        }
-    }
-}
-
 impl fmt::Display for IOW28IOW100ADCConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
@@ -47,26 +36,19 @@ impl fmt::Display for IOW28IOW100ADCConfig {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum IOW56ADCConfig {
-    One = 1,
-    Two = 2,
-    Three = 3,
-    Four = 4,
-    Five = 5,
-    Six = 6,
-    Seven = 7,
-    Eight = 8,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
 }
 
 impl fmt::Display for IOW56ADCConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-
-impl IOW56ADCConfig {
-    #[inline]
-    pub(crate) const fn get_value(&self) -> u8 {
-        *self as u8
     }
 }
 

@@ -1,14 +1,15 @@
-use crate::adc::ADCConfig;
+use crate::adc::{ADCChannel, ADCConfig};
 use std::fmt;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub struct ADCData {
     pub adc_type: IOWarriorADCType,
     pub adc_config: ADCConfig,
     pub resolution_bits: u8,
-    pub report_sample_count: u8,
-    pub max_channel_value: u8,
-    pub sample_duration_ns: u64,
+    pub report_channel_count: u8,
+    pub report_samples_count: u8,
+    pub highest_enabled_channel: ADCChannel,
+    pub sampling_frequency_hz: f32,
 }
 
 impl fmt::Display for ADCData {

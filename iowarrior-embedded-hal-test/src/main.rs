@@ -6,13 +6,17 @@ use embedded_graphics::image::{Image, ImageRaw};
 use embedded_graphics::pixelcolor::BinaryColor;
 use embedded_graphics::prelude::Point;
 use embedded_graphics::Drawable;
+use embedded_hal::digital::PinState;
 use embedded_hal::pwm::SetDutyCycle;
 use embedded_hal::spi::SpiDevice;
 use embedded_sdmmc::sdcard::DummyCsPin;
 use embedded_sdmmc::{Mode, SdCard, TimeSource, Timestamp, VolumeIdx, VolumeManager};
 use embedded_sensors::bh1750::config::{Config, MeasurementMode};
 use embedded_sensors::bh1750::Bh1750;
-use iowarrior_embedded_hal::adc::{ADCChannel, ADCConfig, ADCSample, IOW28IOW100ADCConfig, IOW56ADCConfig, SampleRate1ch, SampleRate4ch};
+use iowarrior_embedded_hal::adc::{
+    ADCChannel, ADCConfig, ADCSample, IOW28IOW100ADCConfig, IOW56ADCConfig, SampleRate1ch,
+    SampleRate4ch,
+};
 use iowarrior_embedded_hal::delay::Delay;
 use iowarrior_embedded_hal::iowarrior::{IOWarrior, IOWarriorType};
 use iowarrior_embedded_hal::spi::{SPIConfig, SPIMode};
@@ -20,7 +24,6 @@ use iowarrior_embedded_hal::{get_iowarriors, pin};
 use ssd1306::prelude::*;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use embedded_hal::digital::PinState;
 
 fn main() {
     match adc_pulse_in() {
@@ -41,7 +44,7 @@ fn adc_pulse_in() -> Result<()> {
         );
 
         let adc_config = ADCConfig {
-            iow28_iow100_config: IOW28IOW100ADCConfig::One(SampleRate1ch::TwentyfourKhz),
+            iow28_iow100_config: IOW28IOW100ADCConfig::One(SampleRate1ch::TenKhz),
             iow56_config: IOW56ADCConfig::One,
         };
 
@@ -49,10 +52,7 @@ fn adc_pulse_in() -> Result<()> {
 
         let pulse = adc.pulse_in(ADCChannel::First, PinState::High, Duration::from_secs(1))?;
 
-        println!(
-            "Received pulse of {} us",
-            pulse.as_micros(),
-        );
+        println!("Received pulse of {} us", pulse.as_micros());
     }
 
     Ok(())
